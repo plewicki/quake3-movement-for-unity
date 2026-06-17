@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f828edd6e8099e489bab588ad6d22c2, type: 3}
+  m_Name: VanillaSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Q3Movement.Q3PlayerControllerSettings
+  m_UseQ3CommandScale: 1
+  m_UseAirDeceleration: 0
+  m_UseSideStrafeSettings: 0
+  m_UseAirControl: 0
+  m_SkipFrictionWhenJumpQueued: 1
+  m_Friction: 6
+  m_Gravity: 17.5
+  m_JumpForce: 5.90625
+  m_AutoBunnyHop: 1
+  m_AirControl: 0
+  m_GroundSettings:
+    MaxSpeed: 7
+    Acceleration: 10
+    Deceleration: 2.1875
+  m_AirSettings:
+    MaxSpeed: 7
+    Acceleration: 1
+    Deceleration: 1
+  m_StrafeSettings:
+    MaxSpeed: 7
+    Acceleration: 1
+    Deceleration: 1

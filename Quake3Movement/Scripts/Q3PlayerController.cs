@@ -3,60 +3,102 @@
 namespace Q3Movement
 {
     /// <summary>
-    /// This script handles Quake III CPM(A) mod style player movement logic.
+    /// Q3-style player controller using Unity's CharacterController.
+    ///
+    /// This script is based on Quake 3 / CPM-style movement concepts:
+    /// - wish direction
+    /// - wish speed
+    /// - ground friction
+    /// - air acceleration
+    /// - optional CPM air control
+    ///
+    /// Important coordinate-system note:
+    /// idTech / Quake uses Z as the vertical axis.
+    /// Unity uses Y as the vertical axis.
+    ///
+    /// This means that Quake's horizontal movement plane maps to Unity's X/Z plane,
+    /// while vertical velocity is stored in Unity's Y component.
+    ///
+    /// Important scale note:
+    /// UPS here means Unity units per second, not original idTech units.
+    /// The default presets assume:
+    /// 7 Unity units/s ~= 320 Quake 3 UPS.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public class Q3PlayerController : MonoBehaviour
     {
-        [System.Serializable]
-        public class MovementSettings
-        {
-            public float MaxSpeed;
-            public float Acceleration;
-            public float Deceleration;
+        [Header("Settings")]
 
-            public MovementSettings(float maxSpeed, float accel, float decel)
-            {
-                MaxSpeed = maxSpeed;
-                Acceleration = accel;
-                Deceleration = decel;
-            }
-        }
+        [Tooltip("Movement profile used by this controller.")]
+        [SerializeField] private Q3PlayerControllerSettings m_Settings;
 
         [Header("Aiming")]
+
         [SerializeField] private Camera m_Camera;
         [SerializeField] private MouseLook m_MouseLook = new MouseLook();
 
-        [Header("Movement")]
-        [SerializeField] private float m_Friction = 6;
-        [SerializeField] private float m_Gravity = 20;
-        [SerializeField] private float m_JumpForce = 8;
-        [Tooltip("Automatically jump when holding jump button")]
-        [SerializeField] private bool m_AutoBunnyHop = false;
-        [Tooltip("How precise air control is")]
-        [SerializeField] private float m_AirControl = 0.3f;
-        [SerializeField] private MovementSettings m_GroundSettings = new MovementSettings(7, 14, 10);
-        [SerializeField] private MovementSettings m_AirSettings = new MovementSettings(7, 2, 2);
-        [SerializeField] private MovementSettings m_StrafeSettings = new MovementSettings(1, 50, 50);
-
         /// <summary>
-        /// Returns player's current speed.
+        /// Returns the current CharacterController velocity magnitude.
+        /// This includes vertical velocity.
         /// </summary>
-        public float Speed { get { return m_Character.velocity.magnitude; } }
+        public float Speed
+        {
+            get { return m_Character != null ? m_Character.velocity.magnitude : 0f; }
+        }
+
+        public float HorizontalSpeed
+        {
+            get
+            {
+                Vector3 velocity = m_PlayerVelocity;
+                velocity.y = 0f;
+                return velocity.magnitude;
+            }
+        }
 
         private CharacterController m_Character;
         private Vector3 m_MoveDirectionNorm = Vector3.zero;
         private Vector3 m_PlayerVelocity = Vector3.zero;
 
-        // Used to queue the next jump just before hitting the ground.
+        // Raw movement input from Unity's input axes.
+        // x = right/left
+        // z = forward/backward
+        private Vector3 m_MoveInput = Vector3.zero;
+
         private bool m_JumpQueued = false;
-
-        // Used to display real time friction values.
-        private float m_PlayerFriction = 0;
-
-        private Vector3 m_MoveInput;
+        private float m_PlayerFriction = 0f;
         private Transform m_Tran;
         private Transform m_CamTran;
+
+        // Runtime fallback used only when no settings asset is assigned.
+        private Q3PlayerControllerSettings m_RuntimeFallbackSettings;
+
+        private Q3PlayerControllerSettings Settings
+        {
+            get
+            {
+                if (m_Settings != null)
+                {
+                    return m_Settings;
+                }
+
+                if (m_RuntimeFallbackSettings == null)
+                {
+                    m_RuntimeFallbackSettings =
+                        ScriptableObject.CreateInstance<Q3PlayerControllerSettings>();
+
+                    m_RuntimeFallbackSettings.ApplyVanillaQuakePreset();
+
+                    Debug.LogWarning(
+                        $"{nameof(Q3PlayerController)} on {name} has no settings asset assigned. " +
+                        "Using runtime Vanilla Quake fallback settings.",
+                        this
+                    );
+                }
+
+                return m_RuntimeFallbackSettings;
+            }
+        }
 
         private void Start()
         {
@@ -64,19 +106,34 @@ namespace Q3Movement
             m_Character = GetComponent<CharacterController>();
 
             if (!m_Camera)
+            {
                 m_Camera = Camera.main;
+            }
 
-            m_CamTran = m_Camera.transform;
-            m_MouseLook.Init(m_Tran, m_CamTran);
+            if (m_Camera)
+            {
+                m_CamTran = m_Camera.transform;
+                m_MouseLook.Init(m_Tran, m_CamTran);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"{nameof(Q3PlayerController)} on {name} has no camera assigned.",
+                    this
+                );
+            }
         }
 
         private void Update()
         {
-            m_MoveInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
-            m_MouseLook.UpdateCursorLock();    
+            ReadInput();
+
+            m_MouseLook.UpdateCursorLock();
             QueueJump();
 
-            // Set movement state.
+            // CharacterController.isGrounded is used as the main ground check.
+            // For a closer idTech-style implementation, this would eventually be
+            // replaced or supported by custom collision / ground-plane handling.
             if (m_Character.isGrounded)
             {
                 GroundMove();
@@ -86,17 +143,41 @@ namespace Q3Movement
                 AirMove();
             }
 
-            // Rotate the character and camera.
-            m_MouseLook.LookRotation(m_Tran, m_CamTran);
+            if (m_CamTran)
+            {
+                m_MouseLook.LookRotation(m_Tran, m_CamTran);
+            }
 
-            // Move the character.
+            // CharacterController.Move expects displacement, not velocity.
+            // Therefore the internally accumulated velocity is multiplied by deltaTime.
             m_Character.Move(m_PlayerVelocity * Time.deltaTime);
         }
 
-        // Queues the next jump.
+        /// <summary>
+        /// Reads raw movement input.
+        ///
+        /// Input.GetAxisRaw is used to avoid Unity's built-in smoothing.
+        /// Quake-style movement expects raw command values.
+        /// </summary>
+        private void ReadInput()
+        {
+            m_MoveInput = new Vector3(
+                Input.GetAxisRaw("Horizontal"),
+                0f,
+                Input.GetAxisRaw("Vertical")
+            );
+        }
+
+        /// <summary>
+        /// Queues the next jump.
+        ///
+        /// In Quake-style movement, a jump can be queued shortly before landing.
+        /// This makes bunny hopping possible without requiring the jump input
+        /// to happen on the exact landing frame.
+        /// </summary>
         private void QueueJump()
         {
-            if (m_AutoBunnyHop)
+            if (Settings.AutoBunnyHop)
             {
                 m_JumpQueued = Input.GetButton("Jump");
                 return;
@@ -113,171 +194,351 @@ namespace Q3Movement
             }
         }
 
-        // Handle air movement.
-        private void AirMove()
+        /// <summary>
+        /// Handles movement while grounded.
+        ///
+        /// Ground movement applies friction first, then accelerates the player
+        /// toward the current wish direction.
+        ///
+        /// When a jump is queued, friction can optionally be skipped for that frame.
+        /// This is one of the details that makes Quake-style bunny hopping work.
+        /// </summary>
+        private void GroundMove()
         {
-            float accel;
+            bool skipFriction =
+                Settings.SkipFrictionWhenJumpQueued &&
+                m_JumpQueued;
 
-            var wishdir = new Vector3(m_MoveInput.x, 0, m_MoveInput.z);
-            wishdir = m_Tran.TransformDirection(wishdir);
+            ApplyFriction(skipFriction ? 0f : 1f);
 
-            float wishspeed = wishdir.magnitude;
-            wishspeed *= m_AirSettings.MaxSpeed;
+            Vector3 wishdir;
+            float wishspeed;
 
-            wishdir.Normalize();
+            GetWishDirAndSpeed(
+                Settings.GroundSettings.MaxSpeed,
+                out wishdir,
+                out wishspeed
+            );
+
             m_MoveDirectionNorm = wishdir;
 
-            // CPM Air control.
-            float wishspeed2 = wishspeed;
-            if (Vector3.Dot(m_PlayerVelocity, wishdir) < 0)
+            Accelerate(
+                wishdir,
+                wishspeed,
+                Settings.GroundSettings.Acceleration
+            );
+
+            // Keep the CharacterController grounded.
+            // This small downward velocity helps Unity keep reporting isGrounded.
+            m_PlayerVelocity.y = -Settings.Gravity * Time.deltaTime;
+
+            if (m_JumpQueued)
             {
-                accel = m_AirSettings.Deceleration;
+                m_PlayerVelocity.y = Settings.JumpForce;
+                m_JumpQueued = false;
             }
-            else
+        }
+
+        /// <summary>
+        /// Handles movement while in the air.
+        ///
+        /// Air movement uses the same Quake-style Accelerate function,
+        /// but typically with much lower acceleration than ground movement.
+        ///
+        /// Optional features can be enabled in the settings asset:
+        /// - air deceleration
+        /// - side-strafe acceleration/cap
+        /// - CPM-style air control
+        /// </summary>
+        private void AirMove()
+        {
+            Vector3 wishdir;
+            float wishspeed;
+
+            GetWishDirAndSpeed(
+                Settings.AirSettings.MaxSpeed,
+                out wishdir,
+                out wishspeed
+            );
+
+            m_MoveDirectionNorm = wishdir;
+
+            float accel = Settings.AirSettings.Acceleration;
+
+            // CPM-style behavior:
+            // use a different acceleration value when the player is trying
+            // to move against their current velocity.
+            if (
+                Settings.UseAirDeceleration &&
+                Vector3.Dot(m_PlayerVelocity, wishdir) < 0f
+            )
             {
-                accel = m_AirSettings.Acceleration;
+                accel = Settings.AirSettings.Deceleration;
             }
 
-            // If the player is ONLY strafing left or right
-            if (m_MoveInput.z == 0 && m_MoveInput.x != 0)
+            // AirControl should receive the original unclamped wishspeed.
+            // Side-strafe logic may clamp wishspeed below.
+            float wishspeedForAirControl = wishspeed;
+
+            // CPM-style side strafe:
+            // when the player is only pressing left or right in the air,
+            // wishspeed is capped and a high acceleration value is used.
+            if (Settings.UseSideStrafeSettings && IsOnlySideStrafing())
             {
-                if (wishspeed > m_StrafeSettings.MaxSpeed)
+                if (wishspeed > Settings.StrafeSettings.MaxSpeed)
                 {
-                    wishspeed = m_StrafeSettings.MaxSpeed;
+                    wishspeed = Settings.StrafeSettings.MaxSpeed;
                 }
 
-                accel = m_StrafeSettings.Acceleration;
+                accel = Settings.StrafeSettings.Acceleration;
             }
 
             Accelerate(wishdir, wishspeed, accel);
-            if (m_AirControl > 0)
+
+            // CPM-style air control:
+            // allows the player to bend their velocity direction in the air
+            // while holding forward or backward.
+            if (Settings.UseAirControl && Settings.AirControl > 0f)
             {
-                AirControl(wishdir, wishspeed2);
+                AirControl(wishdir, wishspeedForAirControl);
             }
 
-            // Apply gravity
-            m_PlayerVelocity.y -= m_Gravity * Time.deltaTime;
+            // Apply gravity after horizontal air acceleration.
+            m_PlayerVelocity.y -= Settings.Gravity * Time.deltaTime;
         }
 
-        // Air control occurs when the player is in the air, it allows players to move side 
-        // to side much faster rather than being 'sluggish' when it comes to cornering.
-        private void AirControl(Vector3 targetDir, float targetSpeed)
+        private bool IsOnlySideStrafing()
         {
-            // Only control air movement when moving forward or backward.
-            if (Mathf.Abs(m_MoveInput.z) < 0.001 || Mathf.Abs(targetSpeed) < 0.001)
+            return
+                Mathf.Abs(m_MoveInput.z) < 0.001f &&
+                Mathf.Abs(m_MoveInput.x) > 0.001f;
+        }
+
+        /// <summary>
+        /// Applies ground friction.
+        ///
+        /// This follows the same general idea as Quake 3's PM_Friction:
+        /// horizontal speed is reduced based on friction, delta time and
+        /// a control value.
+        ///
+        /// The control value uses GroundSettings.Deceleration as a stop-speed
+        /// threshold, similar to Quake 3's pm_stopspeed.
+        /// </summary>
+        private void ApplyFriction(float t)
+        {
+            Vector3 vec = m_PlayerVelocity;
+            vec.y = 0f;
+
+            float speed = vec.magnitude;
+            float drop = 0f;
+
+            if (m_Character.isGrounded)
+            {
+                float control = speed < Settings.GroundSettings.Deceleration
+                    ? Settings.GroundSettings.Deceleration
+                    : speed;
+
+                drop = control * Settings.Friction * Time.deltaTime * t;
+            }
+
+            float newSpeed = speed - drop;
+            m_PlayerFriction = newSpeed;
+
+            if (newSpeed < 0f)
+            {
+                newSpeed = 0f;
+            }
+
+            if (speed > 0f)
+            {
+                newSpeed /= speed;
+            }
+
+            // Friction affects horizontal movement only.
+            // Vertical velocity is intentionally left untouched.
+            m_PlayerVelocity.x *= newSpeed;
+            m_PlayerVelocity.z *= newSpeed;
+        }
+
+        /// <summary>
+        /// Accelerates the player toward the target direction and speed.
+        ///
+        /// This is the core Quake-style acceleration function.
+        ///
+        /// It does not directly clamp total player speed.
+        /// Instead, it limits acceleration along the requested wish direction.
+        /// This is why strafe jumping can build speed: the player can keep adding
+        /// velocity in directions that are not fully aligned with their current velocity.
+        /// </summary>
+        private void Accelerate(Vector3 targetDir, float targetSpeed, float accel)
+        {
+            if (targetSpeed <= 0f)
             {
                 return;
             }
 
-            float zSpeed = m_PlayerVelocity.y;
-            m_PlayerVelocity.y = 0;
-            /* Next two lines are equivalent to idTech's VectorNormalize() */
+            float currentSpeed = Vector3.Dot(m_PlayerVelocity, targetDir);
+            float addSpeed = targetSpeed - currentSpeed;
+
+            if (addSpeed <= 0f)
+            {
+                return;
+            }
+
+            float accelSpeed = accel * Time.deltaTime * targetSpeed;
+
+            if (accelSpeed > addSpeed)
+            {
+                accelSpeed = addSpeed;
+            }
+
+            m_PlayerVelocity.x += accelSpeed * targetDir.x;
+            m_PlayerVelocity.z += accelSpeed * targetDir.z;
+        }
+
+        /// <summary>
+        /// CPM-style air control.
+        ///
+        /// This allows the player to rotate their horizontal velocity direction
+        /// while airborne, as long as they are holding forward or backward.
+        ///
+        /// Vanilla Quake 3 does not use this behavior.
+        /// Enable it through the settings asset for CPM-like movement.
+        /// </summary>
+        private void AirControl(Vector3 targetDir, float targetSpeed)
+        {
+            // Air control only applies when moving forward or backward.
+            // Pure side-strafe movement should not trigger this function.
+            if (
+                Mathf.Abs(m_MoveInput.z) < 0.001f ||
+                Mathf.Abs(targetSpeed) < 0.001f
+            )
+            {
+                return;
+            }
+
+            float ySpeed = m_PlayerVelocity.y;
+            m_PlayerVelocity.y = 0f;
+
+            // Normalize horizontal velocity while preserving its speed separately.
+            // This mirrors the idea of idTech's VectorNormalize returning length.
             float speed = m_PlayerVelocity.magnitude;
+
+            if (speed <= 0f)
+            {
+                m_PlayerVelocity.y = ySpeed;
+                return;
+            }
+
             m_PlayerVelocity.Normalize();
 
             float dot = Vector3.Dot(m_PlayerVelocity, targetDir);
-            float k = 32;
-            k *= m_AirControl * dot * dot * Time.deltaTime;
+            float k = 32f;
 
-            // Change direction while slowing down.
-            if (dot > 0)
+            k *= Settings.AirControl * dot * dot * Time.deltaTime;
+
+            // Only allow air control when the current velocity and target direction
+            // point roughly the same way.
+            if (dot > 0f)
             {
-                m_PlayerVelocity.x *= speed + targetDir.x * k;
-                m_PlayerVelocity.y *= speed + targetDir.y * k;
-                m_PlayerVelocity.z *= speed + targetDir.z * k;
+                // Correct CPM formula.
+                // This intentionally uses assignment, not "*=".
+                m_PlayerVelocity.x = m_PlayerVelocity.x * speed + targetDir.x * k;
+                m_PlayerVelocity.y = m_PlayerVelocity.y * speed + targetDir.y * k;
+                m_PlayerVelocity.z = m_PlayerVelocity.z * speed + targetDir.z * k;
 
                 m_PlayerVelocity.Normalize();
                 m_MoveDirectionNorm = m_PlayerVelocity;
             }
 
+            // Restore original horizontal speed and vertical velocity.
             m_PlayerVelocity.x *= speed;
-            m_PlayerVelocity.y = zSpeed; // Note this line
+            m_PlayerVelocity.y = ySpeed;
             m_PlayerVelocity.z *= speed;
         }
 
-        // Handle ground movement.
-        private void GroundMove()
+        /// <summary>
+        /// Calculates wish direction and wish speed from player input.
+        ///
+        /// wishdir:
+        ///     The normalized world-space direction the player wants to move.
+        ///
+        /// wishspeed:
+        ///     The desired speed along wishdir.
+        ///
+        /// With Q3 command scaling enabled, diagonal input does not produce
+        /// sqrt(2) more wishspeed than single-axis input.
+        /// </summary>
+        private void GetWishDirAndSpeed(
+            float maxSpeed,
+            out Vector3 wishdir,
+            out float wishspeed
+        )
         {
-            // Do not apply friction if the player is queueing up the next jump
-            if (!m_JumpQueued)
+            Vector3 input = new Vector3(m_MoveInput.x, 0f, m_MoveInput.z);
+
+            // Convert local input direction into world space.
+            wishdir = m_Tran.TransformDirection(input);
+
+            float wishdirMagnitude = wishdir.magnitude;
+
+            if (wishdirMagnitude > 0f)
             {
-                ApplyFriction(1.0f);
+                wishdir /= wishdirMagnitude;
             }
             else
             {
-                ApplyFriction(0);
+                wishdir = Vector3.zero;
             }
 
-            var wishdir = new Vector3(m_MoveInput.x, 0, m_MoveInput.z);
-            wishdir = m_Tran.TransformDirection(wishdir);
-            wishdir.Normalize();
-            m_MoveDirectionNorm = wishdir;
-
-            var wishspeed = wishdir.magnitude;
-            wishspeed *= m_GroundSettings.MaxSpeed;
-
-            Accelerate(wishdir, wishspeed, m_GroundSettings.Acceleration);
-
-            // Reset the gravity velocity
-            m_PlayerVelocity.y = -m_Gravity * Time.deltaTime;
-
-            if (m_JumpQueued)
+            if (Settings.UseQ3CommandScale)
             {
-                m_PlayerVelocity.y = m_JumpForce;
-                m_JumpQueued = false;
+                float scale = Q3CmdScale(input, maxSpeed);
+                wishspeed = wishdirMagnitude * scale;
+            }
+            else
+            {
+                // Legacy/simple behavior.
+                // Diagonal input can produce more wishspeed because input magnitude
+                // can be greater than 1.
+                wishspeed = wishdirMagnitude * maxSpeed;
             }
         }
 
-        private void ApplyFriction(float t)
+        /// <summary>
+        /// Quake 3-style command scaling.
+        ///
+        /// The original Quake 3 movement code scales user commands so that
+        /// diagonal movement does not become faster than single-axis movement.
+        ///
+        /// Example with digital keyboard input:
+        /// - W     -> wishspeed = maxSpeed
+        /// - D     -> wishspeed = maxSpeed
+        /// - W + D -> wishspeed = maxSpeed, not maxSpeed * 1.414
+        /// </summary>
+        private float Q3CmdScale(Vector3 input, float maxSpeed)
         {
-            // Equivalent to VectorCopy();
-            Vector3 vec = m_PlayerVelocity; 
-            vec.y = 0;
-            float speed = vec.magnitude;
-            float drop = 0;
+            float max = Mathf.Max(
+                Mathf.Abs(input.x),
+                Mathf.Abs(input.z)
+            );
 
-            // Only apply friction when grounded.
-            if (m_Character.isGrounded)
+            if (max <= 0f)
             {
-                float control = speed < m_GroundSettings.Deceleration ? m_GroundSettings.Deceleration : speed;
-                drop = control * m_Friction * Time.deltaTime * t;
+                return 0f;
             }
 
-            float newSpeed = speed - drop;
-            m_PlayerFriction = newSpeed;
-            if (newSpeed < 0)
+            float total = Mathf.Sqrt(
+                input.x * input.x +
+                input.z * input.z
+            );
+
+            if (total <= 0f)
             {
-                newSpeed = 0;
+                return 0f;
             }
 
-            if (speed > 0)
-            {
-                newSpeed /= speed;
-            }
-
-            m_PlayerVelocity.x *= newSpeed;
-            // playerVelocity.y *= newSpeed;
-            m_PlayerVelocity.z *= newSpeed;
-        }
-
-        // Calculates acceleration based on desired speed and direction.
-        private void Accelerate(Vector3 targetDir, float targetSpeed, float accel)
-        {
-            float currentspeed = Vector3.Dot(m_PlayerVelocity, targetDir);
-            float addspeed = targetSpeed - currentspeed;
-            if (addspeed <= 0)
-            {
-                return;
-            }
-
-            float accelspeed = accel * Time.deltaTime * targetSpeed;
-            if (accelspeed > addspeed)
-            {
-                accelspeed = addspeed;
-            }
-
-            m_PlayerVelocity.x += accelspeed * targetDir.x;
-            m_PlayerVelocity.z += accelspeed * targetDir.z;
+            return maxSpeed * max / total;
         }
     }
 }

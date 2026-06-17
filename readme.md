@@ -1,6 +1,9 @@
-Implementation of Quake III "vanilla" and Challenge ProMode Arena (CPMA) strafe jumping mechanics in the Unity engine.
+Implementation of Quake III “vanilla” and Challenge ProMode Arena (CPMA) strafe jumping mechanics in the Unity engine.
 
-This is my own updated and enhanced fork of the original scripts created by [WiggleWizard](https://github.com/WiggleWizard). So most of the credit goes to him for porting it over. I am just trying to improve upon it some here.
+This is an enhanced fork of [IsaiahKelly](https://github.com/IsaiahKelly) fork of the original scripts created by [WiggleWizard](https://github.com/WiggleWizard).
+Most of the credit goes to them. I only made a small fix and set controller as configurable.
+
+Personally, I think the movement may not be 100% accurate, but the current settings are a good starting point.
 
 ## Notes:
 
@@ -11,7 +14,7 @@ Quake uses a right-handed coordinate system while Unity uses a left-handed one. 
 UPS (units per second) is measured in Unity units (meters) and not idTech units.
 
 ### Configuration
-Default script values emulate Quake III Arena movement with CPM(A) physics.
+Elastic movement configuration — you can enable selected behaviours and set value ranges for friction, gravity, and other parameters.
 
 ### Demo Assets
-Demo scene meshes were built with ProBuilder 4.4 so this package must be installed in your project for demo scene to function.
+Demo scene meshes were built with ProBuilder, so this package must be installed in your project for the demo scene to function correctly.
