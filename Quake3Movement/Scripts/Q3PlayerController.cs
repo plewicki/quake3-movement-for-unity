@@ -66,9 +66,13 @@ namespace Q3Movement
         private Vector3 m_MoveInput = Vector3.zero;
 
         private bool m_JumpQueued = false;
+        private bool m_WasGrounded = false;
         private float m_PlayerFriction = 0f;
         private Transform m_Tran;
         private Transform m_CamTran;
+        private float m_LandingBounceElapsed = float.PositiveInfinity;
+        private float m_LandingBounceStrength = 0f;
+        private float m_CurrentLandingBounceOffset = 0f;
 
         // Runtime fallback used only when no settings asset is assigned.
         private Q3PlayerControllerSettings m_RuntimeFallbackSettings;
@@ -122,6 +126,13 @@ namespace Q3Movement
                     this
                 );
             }
+
+            m_WasGrounded = m_Character.isGrounded;
+        }
+
+        private void OnDisable()
+        {
+            ClearLandingBounceOffset();
         }
 
         private void Update()
@@ -148,9 +159,115 @@ namespace Q3Movement
                 m_MouseLook.LookRotation(m_Tran, m_CamTran);
             }
 
+            float fallSpeedBeforeMove = Mathf.Max(0f, -m_PlayerVelocity.y);
+
             // CharacterController.Move expects displacement, not velocity.
             // Therefore the internally accumulated velocity is multiplied by deltaTime.
-            m_Character.Move(m_PlayerVelocity * Time.deltaTime);
+            CollisionFlags collisionFlags =
+                m_Character.Move(m_PlayerVelocity * Time.deltaTime);
+
+            bool groundedAfterMove =
+                (collisionFlags & CollisionFlags.Below) != 0 ||
+                m_Character.isGrounded;
+
+            TryStartLandingBounce(groundedAfterMove, fallSpeedBeforeMove);
+            UpdateLandingBounce();
+
+            m_WasGrounded = groundedAfterMove;
+        }
+
+        private void TryStartLandingBounce(bool groundedAfterMove, float fallSpeed)
+        {
+            if (
+                !Settings.UseLandingBounce ||
+                !m_CamTran ||
+                m_WasGrounded ||
+                !groundedAfterMove ||
+                Settings.LandingDuration <= 0f ||
+                Settings.LandingDip <= 0f
+            )
+            {
+                return;
+            }
+
+            float minFallSpeed = Mathf.Max(0f, Settings.LandingMinFallSpeed);
+
+            if (fallSpeed < minFallSpeed)
+            {
+                return;
+            }
+
+            float maxFallSpeed = Mathf.Max(
+                minFallSpeed + 0.001f,
+                Settings.LandingMaxFallSpeed
+            );
+
+            float fallT = Mathf.InverseLerp(
+                minFallSpeed,
+                maxFallSpeed,
+                fallSpeed
+            );
+
+            m_LandingBounceStrength = Settings.LandingDip * fallT;
+            m_LandingBounceElapsed = 0f;
+        }
+
+        private void UpdateLandingBounce()
+        {
+            if (!m_CamTran)
+            {
+                return;
+            }
+
+            ClearLandingBounceOffset();
+
+            if (
+                !Settings.UseLandingBounce ||
+                Settings.LandingDuration <= 0f ||
+                m_LandingBounceElapsed >= Settings.LandingDuration
+            )
+            {
+                m_LandingBounceElapsed = float.PositiveInfinity;
+                return;
+            }
+
+            m_LandingBounceElapsed += Time.deltaTime;
+
+            float t = Mathf.Clamp01(
+                m_LandingBounceElapsed / Settings.LandingDuration
+            );
+
+            m_CurrentLandingBounceOffset =
+                m_LandingBounceStrength * EvaluateLandingBounce(t);
+
+            m_CamTran.localPosition += Vector3.down * m_CurrentLandingBounceOffset;
+
+            if (t >= 1f)
+            {
+                m_LandingBounceElapsed = float.PositiveInfinity;
+            }
+        }
+
+        private void ClearLandingBounceOffset()
+        {
+            if (!m_CamTran || m_CurrentLandingBounceOffset == 0f)
+            {
+                return;
+            }
+
+            m_CamTran.localPosition += Vector3.up * m_CurrentLandingBounceOffset;
+            m_CurrentLandingBounceOffset = 0f;
+        }
+
+        private float EvaluateLandingBounce(float t)
+        {
+            float dipT = Mathf.Clamp01(t / 0.2f);
+            float recoverT = Mathf.Clamp01((t - 0.2f) / 0.8f);
+
+            float dip = Mathf.SmoothStep(0f, 1f, dipT);
+            float recover = 1f - Mathf.SmoothStep(0f, 1f, recoverT);
+
+            return dip * recover;
         }
 
         /// <summary>

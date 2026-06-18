@@ -72,6 +72,9 @@ namespace Q3Movement
         [Tooltip("Skips ground friction when jump is queued, matching Q3-style bunny hopping behavior.")]
         [SerializeField] private bool m_SkipFrictionWhenJumpQueued = true;
 
+        [Tooltip("Enables a visual camera bounce after landing. Does not affect movement velocity.")]
+        [SerializeField] private bool m_UseLandingBounce = false;
+
         [Header("Base Movement")]
 
         [Tooltip("Ground friction multiplier. Vanilla Quake 3 uses pm_friction = 6.")]
@@ -112,6 +115,21 @@ namespace Q3Movement
         private MovementSettings m_StrafeSettings =
             new MovementSettings(7f, 1f, 1f);
 
+        [Header("Landing Bounce")]
+
+        [Tooltip("Duration of the visual landing bounce in seconds.")]
+        [SerializeField] private float m_LandingDuration = 0.5f;
+
+        [Tooltip("Maximum downward camera offset applied by the landing bounce.")]
+        [SerializeField] private float m_LandingDip = 0.08f;
+
+        [Tooltip("Minimum downward landing speed required to start the bounce.")]
+        [SerializeField] private float m_LandingMinFallSpeed = 2f;
+
+        [Tooltip("Fall speed that produces the full landing dip.")]
+        [SerializeField] private float m_LandingMaxFallSpeed = 12f;
+
+        public bool UseLandingBounce => m_UseLandingBounce;
         public bool UseQ3CommandScale => m_UseQ3CommandScale;
         public bool UseAirDeceleration => m_UseAirDeceleration;
         public bool UseSideStrafeSettings => m_UseSideStrafeSettings;
@@ -129,6 +147,11 @@ namespace Q3Movement
         public MovementSettings AirSettings => m_AirSettings;
         public MovementSettings StrafeSettings => m_StrafeSettings;
 
+        public float LandingDuration => m_LandingDuration;
+        public float LandingDip => m_LandingDip;
+        public float LandingMinFallSpeed => m_LandingMinFallSpeed;
+        public float LandingMaxFallSpeed => m_LandingMaxFallSpeed;
+
         /// <summary>
         /// Applies a Vanilla Quake 3-like movement preset.
         ///
@@ -142,6 +165,7 @@ namespace Q3Movement
         [ContextMenu("Apply Vanilla Quake 3 Preset")]
         public void ApplyVanillaQuakePreset()
         {
+            m_UseLandingBounce = false;
             m_UseQ3CommandScale = true;
             m_UseAirDeceleration = false;
             m_UseSideStrafeSettings = false;
@@ -191,6 +215,7 @@ namespace Q3Movement
         [ContextMenu("Apply CPM Preset")]
         public void ApplyCpmPreset()
         {
+            m_UseLandingBounce = false;
             m_UseQ3CommandScale = true;
             m_UseAirDeceleration = true;
             m_UseSideStrafeSettings = true;

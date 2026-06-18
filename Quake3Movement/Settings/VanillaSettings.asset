@@ -17,10 +17,11 @@ MonoBehaviour:
   m_UseSideStrafeSettings: 0
   m_UseAirControl: 0
   m_SkipFrictionWhenJumpQueued: 1
+  m_UseLandingBounce: 1
   m_Friction: 6
   m_Gravity: 17.5
   m_JumpForce: 5.90625
-  m_AutoBunnyHop: 1
+  m_AutoBunnyHop: 0
   m_AirControl: 0
   m_GroundSettings:
     MaxSpeed: 7
@@ -34,3 +35,7 @@ MonoBehaviour:
     MaxSpeed: 7
     Acceleration: 1
     Deceleration: 1
+  m_LandingDuration: 0.5
+  m_LandingDip: 0.08
+  m_LandingMinFallSpeed: 2
+  m_LandingMaxFallSpeed: 12
