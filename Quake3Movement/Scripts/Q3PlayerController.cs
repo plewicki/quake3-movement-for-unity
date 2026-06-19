@@ -261,12 +261,17 @@ namespace Q3Movement
 
         private float EvaluateLandingBounce(float t)
         {
+            // Spend the first 20% of the animation moving the camera downward.
             float dipT = Mathf.Clamp01(t / 0.2f);
+
+            // Spend the remaining 80% smoothly returning the camera to neutral.
             float recoverT = Mathf.Clamp01((t - 0.2f) / 0.8f);
 
+            // SmoothStep gives the landing a soft ease-in/ease-out feel.
             float dip = Mathf.SmoothStep(0f, 1f, dipT);
             float recover = 1f - Mathf.SmoothStep(0f, 1f, recoverT);
 
+            // Multiplying both curves creates a quick dip followed by a soft recovery.
             return dip * recover;
         }
 
