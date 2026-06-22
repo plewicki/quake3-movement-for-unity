@@ -56,6 +56,8 @@ namespace Q3Movement
             }
         }
 
+        public bool IsCrouched => m_IsCrouched;
+
         private CharacterController m_Character;
         private Vector3 m_MoveDirectionNorm = Vector3.zero;
         private Vector3 m_PlayerVelocity = Vector3.zero;
@@ -66,6 +68,8 @@ namespace Q3Movement
         private Vector3 m_MoveInput = Vector3.zero;
 
         private bool m_JumpQueued = false;
+        private bool m_CrouchHeld = false;
+        private bool m_IsCrouched = false;
         private bool m_WasGrounded = false;
         private float m_PlayerFriction = 0f;
         private Transform m_Tran;
@@ -73,6 +77,14 @@ namespace Q3Movement
         private float m_LandingBounceElapsed = float.PositiveInfinity;
         private float m_LandingBounceStrength = 0f;
         private float m_CurrentLandingBounceOffset = 0f;
+        private float m_CurrentCrouchViewOffset = 0f;
+        private float m_DefaultCharacterHeight = 0f;
+        private float m_DefaultCharacterRadius = 0f;
+        private float m_DefaultStepOffset = 0f;
+        private Vector3 m_DefaultCharacterCenter = Vector3.zero;
+        private Vector3 m_DefaultCameraLocalPosition = Vector3.zero;
+        private bool m_HasDefaultCameraLocalPosition = false;
+        private readonly Collider[] m_CrouchClearanceOverlaps = new Collider[8];
 
         // Runtime fallback used only when no settings asset is assigned.
         private Q3PlayerControllerSettings m_RuntimeFallbackSettings;
@@ -108,6 +120,10 @@ namespace Q3Movement
         {
             m_Tran = transform;
             m_Character = GetComponent<CharacterController>();
+            m_DefaultCharacterHeight = m_Character.height;
+            m_DefaultCharacterRadius = m_Character.radius;
+            m_DefaultCharacterCenter = m_Character.center;
+            m_DefaultStepOffset = m_Character.stepOffset;
 
             if (!m_Camera)
             {
@@ -117,6 +133,8 @@ namespace Q3Movement
             if (m_Camera)
             {
                 m_CamTran = m_Camera.transform;
+                m_DefaultCameraLocalPosition = m_CamTran.localPosition;
+                m_HasDefaultCameraLocalPosition = true;
                 m_MouseLook.Init(m_Tran, m_CamTran);
             }
             else
@@ -132,7 +150,7 @@ namespace Q3Movement
 
         private void OnDisable()
         {
-            ClearLandingBounceOffset();
+            ResetCameraOffsets();
         }
 
         private void Update()
@@ -141,6 +159,7 @@ namespace Q3Movement
 
             m_MouseLook.UpdateCursorLock();
             QueueJump();
+            UpdateCrouchState();
 
             // CharacterController.isGrounded is used as the main ground check.
             // For a closer idTech-style implementation, this would eventually be
@@ -172,6 +191,7 @@ namespace Q3Movement
 
             TryStartLandingBounce(groundedAfterMove, fallSpeedBeforeMove);
             UpdateLandingBounce();
+            UpdateCameraOffsets();
 
             m_WasGrounded = groundedAfterMove;
         }
@@ -219,8 +239,6 @@ namespace Q3Movement
                 return;
             }
 
-            ClearLandingBounceOffset();
-
             if (
                 !Settings.UseLandingBounce ||
                 Settings.LandingDuration <= 0f ||
@@ -228,6 +246,7 @@ namespace Q3Movement
             )
             {
                 m_LandingBounceElapsed = float.PositiveInfinity;
+                m_CurrentLandingBounceOffset = 0f;
                 return;
             }
 
@@ -240,23 +259,69 @@ namespace Q3Movement
             m_CurrentLandingBounceOffset =
                 m_LandingBounceStrength * EvaluateLandingBounce(t);
 
-            m_CamTran.localPosition += Vector3.down * m_CurrentLandingBounceOffset;
-
             if (t >= 1f)
             {
                 m_LandingBounceElapsed = float.PositiveInfinity;
             }
         }
 
-        private void ClearLandingBounceOffset()
+        private void ResetCameraOffsets()
         {
-            if (!m_CamTran || m_CurrentLandingBounceOffset == 0f)
+            m_CurrentLandingBounceOffset = 0f;
+            m_CurrentCrouchViewOffset = 0f;
+            ApplyCameraPositionOffsets();
+        }
+
+        private void UpdateCameraOffsets()
+        {
+            UpdateCrouchViewOffset();
+            ApplyCameraPositionOffsets();
+        }
+
+        private void UpdateCrouchViewOffset()
+        {
+            float targetOffset = m_IsCrouched ? GetCrouchViewOffset() : 0f;
+            float transitionSpeed = Settings.CrouchViewTransitionSpeed;
+
+            if (transitionSpeed <= 0f)
+            {
+                m_CurrentCrouchViewOffset = targetOffset;
+                return;
+            }
+
+            m_CurrentCrouchViewOffset = Mathf.MoveTowards(
+                m_CurrentCrouchViewOffset,
+                targetOffset,
+                transitionSpeed * Time.deltaTime
+            );
+        }
+
+        private float GetCrouchViewOffset()
+        {
+            if (!m_HasDefaultCameraLocalPosition)
+            {
+                return 0f;
+            }
+
+            float viewRatio = Mathf.Clamp01(Settings.CrouchViewHeightRatio);
+            float crouchedLocalY = m_DefaultCameraLocalPosition.y * viewRatio;
+
+            return Mathf.Max(0f, m_DefaultCameraLocalPosition.y - crouchedLocalY);
+        }
+
+        private void ApplyCameraPositionOffsets()
+        {
+            if (!m_CamTran || !m_HasDefaultCameraLocalPosition)
             {
                 return;
             }
 
-            m_CamTran.localPosition += Vector3.up * m_CurrentLandingBounceOffset;
-            m_CurrentLandingBounceOffset = 0f;
+            float totalOffset =
+                m_CurrentCrouchViewOffset +
+                m_CurrentLandingBounceOffset;
+
+            m_CamTran.localPosition =
+                m_DefaultCameraLocalPosition + Vector3.down * totalOffset;
         }
 
         private float EvaluateLandingBounce(float t)
@@ -288,6 +353,152 @@ namespace Q3Movement
                 0f,
                 Input.GetAxisRaw("Vertical")
             );
+
+            KeyCode crouchKey = Settings.CrouchKey;
+            m_CrouchHeld =
+                crouchKey != KeyCode.None &&
+                Input.GetKey(crouchKey);
+        }
+
+        private void UpdateCrouchState()
+        {
+            if (m_CrouchHeld)
+            {
+                SetCrouched(true);
+                return;
+            }
+
+            if (m_IsCrouched && CanStand())
+            {
+                SetCrouched(false);
+            }
+        }
+
+        private void SetCrouched(bool crouched)
+        {
+            if (m_IsCrouched == crouched)
+            {
+                return;
+            }
+
+            m_IsCrouched = crouched;
+            ApplyCrouchCollider();
+        }
+
+        private void ApplyCrouchCollider()
+        {
+            if (!m_Character)
+            {
+                return;
+            }
+
+            float targetHeight = m_IsCrouched
+                ? GetCrouchedCharacterHeight()
+                : m_DefaultCharacterHeight;
+
+            Vector3 targetCenter = m_IsCrouched
+                ? GetCharacterCenterForHeight(targetHeight)
+                : m_DefaultCharacterCenter;
+
+            m_Character.height = targetHeight;
+            m_Character.center = targetCenter;
+
+            float maxStepOffset = Mathf.Max(
+                0f,
+                targetHeight - m_DefaultCharacterRadius * 2f
+            );
+
+            m_Character.stepOffset = Mathf.Min(
+                m_DefaultStepOffset,
+                maxStepOffset
+            );
+        }
+
+        private float GetCrouchedCharacterHeight()
+        {
+            float crouchHeightRatio = Mathf.Clamp(
+                Settings.CrouchHeightRatio,
+                0.1f,
+                1f
+            );
+
+            return Mathf.Max(
+                m_DefaultCharacterRadius * 2f,
+                m_DefaultCharacterHeight * crouchHeightRatio
+            );
+        }
+
+        private Vector3 GetCharacterCenterForHeight(float height)
+        {
+            float bottom =
+                m_DefaultCharacterCenter.y -
+                m_DefaultCharacterHeight * 0.5f;
+
+            Vector3 center = m_DefaultCharacterCenter;
+            center.y = bottom + height * 0.5f;
+
+            return center;
+        }
+
+        private bool CanStand()
+        {
+            if (!m_Character)
+            {
+                return true;
+            }
+
+            Vector3 lossyScale = m_Tran.lossyScale;
+            float heightScale = Mathf.Abs(lossyScale.y);
+            float radiusScale = Mathf.Max(
+                Mathf.Abs(lossyScale.x),
+                Mathf.Abs(lossyScale.z)
+            );
+
+            float radius = Mathf.Max(
+                0f,
+                m_DefaultCharacterRadius * radiusScale -
+                Mathf.Max(0f, Settings.CrouchClearanceSkin)
+            );
+
+            float height = Mathf.Max(
+                radius * 2f,
+                m_DefaultCharacterHeight * heightScale
+            );
+
+            Vector3 center = m_Tran.TransformPoint(m_DefaultCharacterCenter);
+            Vector3 up = m_Tran.up;
+            float capsuleHalfLine = Mathf.Max(0f, height * 0.5f - radius);
+            Vector3 bottom = center - up * capsuleHalfLine;
+            Vector3 top = center + up * capsuleHalfLine;
+
+            int hitCount = Physics.OverlapCapsuleNonAlloc(
+                bottom,
+                top,
+                radius,
+                m_CrouchClearanceOverlaps,
+                Settings.CrouchClearanceMask,
+                QueryTriggerInteraction.Ignore
+            );
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider hit = m_CrouchClearanceOverlaps[i];
+
+                if (hit && !IsOwnCollider(hit))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool IsOwnCollider(Collider hit)
+        {
+            return
+                hit == m_Character ||
+                hit.transform == m_Tran ||
+                hit.transform.IsChildOf(m_Tran);
         }
 
         /// <summary>
@@ -341,6 +552,18 @@ namespace Q3Movement
                 out wishdir,
                 out wishspeed
             );
+
+            if (m_IsCrouched)
+            {
+                float crouchWishspeedCap =
+                    Settings.GroundSettings.MaxSpeed *
+                    Mathf.Max(0f, Settings.CrouchSpeedScale);
+
+                if (wishspeed > crouchWishspeedCap)
+                {
+                    wishspeed = crouchWishspeedCap;
+                }
+            }
 
             m_MoveDirectionNorm = wishdir;
 

@@ -75,6 +75,29 @@ namespace Q3Movement
         [Tooltip("Enables a visual camera bounce after landing. Does not affect movement velocity.")]
         [SerializeField] private bool m_UseLandingBounce = false;
 
+        [Header("Crouch")]
+
+        [Tooltip("Keyboard key used for crouching.")]
+        [SerializeField] private KeyCode m_CrouchKey = KeyCode.LeftControl;
+
+        [Tooltip("Ground wishspeed multiplier while crouched. Quake 3 uses pm_duckScale = 0.25.")]
+        [SerializeField] private float m_CrouchSpeedScale = 0.25f;
+
+        [Tooltip("Collider height multiplier while crouched. Quake 3 changes from 56 to 40 units.")]
+        [SerializeField] private float m_CrouchHeightRatio = 40f / 56f;
+
+        [Tooltip("Camera height multiplier while crouched. Quake 3 viewheight changes from 26 to 12 units.")]
+        [SerializeField] private float m_CrouchViewHeightRatio = 12f / 26f;
+
+        [Tooltip("Camera crouch transition speed in units per second. Set to 0 for an instant snap.")]
+        [SerializeField] private float m_CrouchViewTransitionSpeed = 12f;
+
+        [Tooltip("Collision layers checked before standing up from crouch.")]
+        [SerializeField] private LayerMask m_CrouchClearanceMask = Physics.DefaultRaycastLayers;
+
+        [Tooltip("Small inset for the stand-up clearance probe to avoid skin-width false positives.")]
+        [SerializeField] private float m_CrouchClearanceSkin = 0.02f;
+
         [Header("Base Movement")]
 
         [Tooltip("Ground friction multiplier. Vanilla Quake 3 uses pm_friction = 6.")]
@@ -136,6 +159,14 @@ namespace Q3Movement
         public bool UseAirControl => m_UseAirControl;
         public bool SkipFrictionWhenJumpQueued => m_SkipFrictionWhenJumpQueued;
 
+        public KeyCode CrouchKey => m_CrouchKey;
+        public float CrouchSpeedScale => m_CrouchSpeedScale;
+        public float CrouchHeightRatio => m_CrouchHeightRatio;
+        public float CrouchViewHeightRatio => m_CrouchViewHeightRatio;
+        public float CrouchViewTransitionSpeed => m_CrouchViewTransitionSpeed;
+        public LayerMask CrouchClearanceMask => m_CrouchClearanceMask;
+        public float CrouchClearanceSkin => m_CrouchClearanceSkin;
+
         public float Friction => m_Friction;
         public float Gravity => m_Gravity;
         public float JumpForce => m_JumpForce;
@@ -171,6 +202,14 @@ namespace Q3Movement
             m_UseSideStrafeSettings = false;
             m_UseAirControl = false;
             m_SkipFrictionWhenJumpQueued = true;
+
+            m_CrouchKey = KeyCode.LeftControl;
+            m_CrouchSpeedScale = 0.25f;
+            m_CrouchHeightRatio = 40f / 56f;
+            m_CrouchViewHeightRatio = 12f / 26f;
+            m_CrouchViewTransitionSpeed = 12f;
+            m_CrouchClearanceMask = Physics.DefaultRaycastLayers;
+            m_CrouchClearanceSkin = 0.02f;
 
             m_Friction = 6f;
 
@@ -221,6 +260,14 @@ namespace Q3Movement
             m_UseSideStrafeSettings = true;
             m_UseAirControl = true;
             m_SkipFrictionWhenJumpQueued = true;
+
+            m_CrouchKey = KeyCode.LeftControl;
+            m_CrouchSpeedScale = 0.25f;
+            m_CrouchHeightRatio = 40f / 56f;
+            m_CrouchViewHeightRatio = 12f / 26f;
+            m_CrouchViewTransitionSpeed = 12f;
+            m_CrouchClearanceMask = Physics.DefaultRaycastLayers;
+            m_CrouchClearanceSkin = 0.02f;
 
             // Original repo-like CPM values.
             m_Friction = 6f;
