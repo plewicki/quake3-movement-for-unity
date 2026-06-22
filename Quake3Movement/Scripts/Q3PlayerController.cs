@@ -354,6 +354,12 @@ namespace Q3Movement
                 Input.GetAxisRaw("Vertical")
             );
 
+            if (!Settings.UseCrouch)
+            {
+                m_CrouchHeld = false;
+                return;
+            }
+
             KeyCode crouchKey = Settings.CrouchKey;
             m_CrouchHeld =
                 crouchKey != KeyCode.None &&
@@ -362,6 +368,16 @@ namespace Q3Movement
 
         private void UpdateCrouchState()
         {
+            if (!Settings.UseCrouch)
+            {
+                if (m_IsCrouched && CanStand())
+                {
+                    SetCrouched(false);
+                }
+
+                return;
+            }
+
             if (m_CrouchHeld)
             {
                 SetCrouched(true);

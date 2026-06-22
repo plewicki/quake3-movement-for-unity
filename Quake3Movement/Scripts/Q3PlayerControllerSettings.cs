@@ -69,11 +69,33 @@ namespace Q3Movement
         [Tooltip("Uses CPM-style air control.")]
         [SerializeField] private bool m_UseAirControl = false;
 
+        [Tooltip("Enables Quake-style crouching.")]
+        [SerializeField] private bool m_UseCrouch = true;
+
         [Tooltip("Skips ground friction when jump is queued, matching Q3-style bunny hopping behavior.")]
         [SerializeField] private bool m_SkipFrictionWhenJumpQueued = true;
 
         [Tooltip("Enables a visual camera bounce after landing. Does not affect movement velocity.")]
         [SerializeField] private bool m_UseLandingBounce = false;
+
+        [Header("Base Movement")]
+
+        [Tooltip("Ground friction multiplier. Vanilla Quake 3 uses pm_friction = 6.")]
+        [SerializeField] private float m_Friction = 6f;
+
+        [Tooltip("Gravity applied every frame. Scaled from Quake 3 g_gravity = 800.")]
+        [SerializeField] private float m_Gravity = 17.5f;
+
+        [Tooltip("Vertical jump velocity. Scaled from Quake 3 JUMP_VELOCITY = 270.")]
+        [SerializeField] private float m_JumpForce = 5.90625f;
+
+        [Tooltip("Automatically jump when holding the jump button.")]
+        [SerializeField] private bool m_AutoBunnyHop = false;
+
+        [Header("Air Control")]
+
+        [Tooltip("CPM-style air control strength. Used only when Use Air Control is enabled.")]
+        [SerializeField] private float m_AirControl = 0f;
 
         [Header("Crouch")]
 
@@ -97,25 +119,6 @@ namespace Q3Movement
 
         [Tooltip("Small inset for the stand-up clearance probe to avoid skin-width false positives.")]
         [SerializeField] private float m_CrouchClearanceSkin = 0.02f;
-
-        [Header("Base Movement")]
-
-        [Tooltip("Ground friction multiplier. Vanilla Quake 3 uses pm_friction = 6.")]
-        [SerializeField] private float m_Friction = 6f;
-
-        [Tooltip("Gravity applied every frame. Scaled from Quake 3 g_gravity = 800.")]
-        [SerializeField] private float m_Gravity = 17.5f;
-
-        [Tooltip("Vertical jump velocity. Scaled from Quake 3 JUMP_VELOCITY = 270.")]
-        [SerializeField] private float m_JumpForce = 5.90625f;
-
-        [Tooltip("Automatically jump when holding the jump button.")]
-        [SerializeField] private bool m_AutoBunnyHop = false;
-
-        [Header("Air Control")]
-
-        [Tooltip("CPM-style air control strength. Used only when Use Air Control is enabled.")]
-        [SerializeField] private float m_AirControl = 0f;
 
         [Header("Ground Settings")]
 
@@ -157,6 +160,7 @@ namespace Q3Movement
         public bool UseAirDeceleration => m_UseAirDeceleration;
         public bool UseSideStrafeSettings => m_UseSideStrafeSettings;
         public bool UseAirControl => m_UseAirControl;
+        public bool UseCrouch => m_UseCrouch;
         public bool SkipFrictionWhenJumpQueued => m_SkipFrictionWhenJumpQueued;
 
         public KeyCode CrouchKey => m_CrouchKey;
@@ -201,6 +205,7 @@ namespace Q3Movement
             m_UseAirDeceleration = false;
             m_UseSideStrafeSettings = false;
             m_UseAirControl = false;
+            m_UseCrouch = true;
             m_SkipFrictionWhenJumpQueued = true;
 
             m_CrouchKey = KeyCode.LeftControl;
@@ -259,6 +264,7 @@ namespace Q3Movement
             m_UseAirDeceleration = true;
             m_UseSideStrafeSettings = true;
             m_UseAirControl = true;
+            m_UseCrouch = true;
             m_SkipFrictionWhenJumpQueued = true;
 
             m_CrouchKey = KeyCode.LeftControl;
