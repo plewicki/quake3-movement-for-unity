@@ -16,3 +16,4 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_JumpButton: Jump
   m_CrouchButton: Fire1
+  m_WalkButton: Fire3
