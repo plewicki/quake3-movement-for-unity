@@ -1,9 +1,16 @@
 Implementation of Quake III “vanilla” and Challenge ProMode Arena (CPMA) strafe jumping mechanics in the Unity engine.
 
 This is an enhanced fork of [IsaiahKelly](https://github.com/IsaiahKelly) fork of the original scripts created by [WiggleWizard](https://github.com/WiggleWizard).
-Most of the credit goes to them. I only made a small fix and set controller as configurable.
+Most of the credit goes to them. My contributions were:
++ a small physics fix
++ crouching
++ walking
++ landing bounce
++ auto bunny hopping
++ a configurable controller, including features, variables, and bindings
++ preconfigured prefabs
 
-Personally, I think the movement may not be 100% accurate, but the current settings are a good starting point.
+Personally, I don’t think the movement is 100% accurate yet, but the current settings are a good starting point.
 
 ## Notes:
 
