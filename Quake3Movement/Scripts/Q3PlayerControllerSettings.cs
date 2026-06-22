@@ -99,9 +99,6 @@ namespace Q3Movement
 
         [Header("Crouch")]
 
-        [Tooltip("Keyboard key used for crouching.")]
-        [SerializeField] private KeyCode m_CrouchKey = KeyCode.LeftControl;
-
         [Tooltip("Ground wishspeed multiplier while crouched. Quake 3 uses pm_duckScale = 0.25.")]
         [SerializeField] private float m_CrouchSpeedScale = 0.25f;
 
@@ -163,7 +160,6 @@ namespace Q3Movement
         public bool UseCrouch => m_UseCrouch;
         public bool SkipFrictionWhenJumpQueued => m_SkipFrictionWhenJumpQueued;
 
-        public KeyCode CrouchKey => m_CrouchKey;
         public float CrouchSpeedScale => m_CrouchSpeedScale;
         public float CrouchHeightRatio => m_CrouchHeightRatio;
         public float CrouchViewHeightRatio => m_CrouchViewHeightRatio;
@@ -208,7 +204,6 @@ namespace Q3Movement
             m_UseCrouch = true;
             m_SkipFrictionWhenJumpQueued = true;
 
-            m_CrouchKey = KeyCode.LeftControl;
             m_CrouchSpeedScale = 0.25f;
             m_CrouchHeightRatio = 40f / 56f;
             m_CrouchViewHeightRatio = 12f / 26f;
@@ -267,7 +262,6 @@ namespace Q3Movement
             m_UseCrouch = true;
             m_SkipFrictionWhenJumpQueued = true;
 
-            m_CrouchKey = KeyCode.LeftControl;
             m_CrouchSpeedScale = 0.25f;
             m_CrouchHeightRatio = 40f / 56f;
             m_CrouchViewHeightRatio = 12f / 26f;

@@ -32,6 +32,9 @@ namespace Q3Movement
         [Tooltip("Movement profile used by this controller.")]
         [SerializeField] private Q3PlayerControllerSettings m_Settings;
 
+        [Tooltip("Legacy Input Manager bindings used by this controller.")]
+        [SerializeField] private Q3PlayerInputSettings m_InputSettings;
+
         [Header("Aiming")]
 
         [SerializeField] private Camera m_Camera;
@@ -88,6 +91,7 @@ namespace Q3Movement
 
         // Runtime fallback used only when no settings asset is assigned.
         private Q3PlayerControllerSettings m_RuntimeFallbackSettings;
+        private Q3PlayerInputSettings m_RuntimeFallbackInputSettings;
 
         private Q3PlayerControllerSettings Settings
         {
@@ -113,6 +117,25 @@ namespace Q3Movement
                 }
 
                 return m_RuntimeFallbackSettings;
+            }
+        }
+
+        private Q3PlayerInputSettings InputSettings
+        {
+            get
+            {
+                if (m_InputSettings != null)
+                {
+                    return m_InputSettings;
+                }
+
+                if (m_RuntimeFallbackInputSettings == null)
+                {
+                    m_RuntimeFallbackInputSettings =
+                        ScriptableObject.CreateInstance<Q3PlayerInputSettings>();
+                }
+
+                return m_RuntimeFallbackInputSettings;
             }
         }
 
@@ -348,10 +371,12 @@ namespace Q3Movement
         /// </summary>
         private void ReadInput()
         {
+            Q3PlayerInputSettings inputSettings = InputSettings;
+
             m_MoveInput = new Vector3(
-                Input.GetAxisRaw("Horizontal"),
+                GetAxisRaw(inputSettings.HorizontalAxis),
                 0f,
-                Input.GetAxisRaw("Vertical")
+                GetAxisRaw(inputSettings.VerticalAxis)
             );
 
             if (!Settings.UseCrouch)
@@ -360,10 +385,7 @@ namespace Q3Movement
                 return;
             }
 
-            KeyCode crouchKey = Settings.CrouchKey;
-            m_CrouchHeld =
-                crouchKey != KeyCode.None &&
-                Input.GetKey(crouchKey);
+            m_CrouchHeld = GetButton(inputSettings.CrouchButton);
         }
 
         private void UpdateCrouchState()
@@ -526,21 +548,51 @@ namespace Q3Movement
         /// </summary>
         private void QueueJump()
         {
+            string jumpButton = InputSettings.JumpButton;
+
             if (Settings.AutoBunnyHop)
             {
-                m_JumpQueued = Input.GetButton("Jump");
+                m_JumpQueued = GetButton(jumpButton);
                 return;
             }
 
-            if (Input.GetButtonDown("Jump") && !m_JumpQueued)
+            if (GetButtonDown(jumpButton) && !m_JumpQueued)
             {
                 m_JumpQueued = true;
             }
 
-            if (Input.GetButtonUp("Jump"))
+            if (GetButtonUp(jumpButton))
             {
                 m_JumpQueued = false;
             }
+        }
+
+        private float GetAxisRaw(string axisName)
+        {
+            return string.IsNullOrEmpty(axisName)
+                ? 0f
+                : Input.GetAxisRaw(axisName);
+        }
+
+        private bool GetButton(string buttonName)
+        {
+            return
+                !string.IsNullOrEmpty(buttonName) &&
+                Input.GetButton(buttonName);
+        }
+
+        private bool GetButtonDown(string buttonName)
+        {
+            return
+                !string.IsNullOrEmpty(buttonName) &&
+                Input.GetButtonDown(buttonName);
+        }
+
+        private bool GetButtonUp(string buttonName)
+        {
+            return
+                !string.IsNullOrEmpty(buttonName) &&
+                Input.GetButtonUp(buttonName);
         }
 
         /// <summary>

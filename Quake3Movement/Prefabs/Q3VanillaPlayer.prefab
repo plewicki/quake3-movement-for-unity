@@ -362,6 +362,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Q3Movement.Q3PlayerController
   m_Settings: {fileID: 11400000, guid: 26cecda24ec10f94881d529ef48a0c99, type: 2}
+  m_InputSettings: {fileID: 11400000, guid: 366ea500ca47fcd44a55b5103b0b473f, type: 2}
   m_Camera: {fileID: 8703333725332878455}
   m_MouseLook:
     m_XSensitivity: 2
