@@ -72,6 +72,9 @@ namespace Q3Movement
         [Tooltip("Enables Quake-style crouching.")]
         [SerializeField] private bool m_UseCrouch = true;
 
+        [Tooltip("Enables Quake-style walking.")]
+        [SerializeField] private bool m_UseWalk = true;
+
         [Tooltip("Skips ground friction when jump is queued, matching Q3-style bunny hopping behavior.")]
         [SerializeField] private bool m_SkipFrictionWhenJumpQueued = true;
 
@@ -96,6 +99,11 @@ namespace Q3Movement
 
         [Tooltip("CPM-style air control strength. Used only when Use Air Control is enabled.")]
         [SerializeField] private float m_AirControl = 0f;
+
+        [Header("Walk")]
+
+        [Tooltip("Movement input multiplier while walking. Quake 3 uses 64 instead of 127 command speed.")]
+        [SerializeField] private float m_WalkSpeedScale = 64f / 127f;
 
         [Header("Crouch")]
 
@@ -158,7 +166,10 @@ namespace Q3Movement
         public bool UseSideStrafeSettings => m_UseSideStrafeSettings;
         public bool UseAirControl => m_UseAirControl;
         public bool UseCrouch => m_UseCrouch;
+        public bool UseWalk => m_UseWalk;
         public bool SkipFrictionWhenJumpQueued => m_SkipFrictionWhenJumpQueued;
+
+        public float WalkSpeedScale => m_WalkSpeedScale;
 
         public float CrouchSpeedScale => m_CrouchSpeedScale;
         public float CrouchHeightRatio => m_CrouchHeightRatio;
@@ -202,7 +213,10 @@ namespace Q3Movement
             m_UseSideStrafeSettings = false;
             m_UseAirControl = false;
             m_UseCrouch = true;
+            m_UseWalk = true;
             m_SkipFrictionWhenJumpQueued = true;
+
+            m_WalkSpeedScale = 64f / 127f;
 
             m_CrouchSpeedScale = 0.25f;
             m_CrouchHeightRatio = 40f / 56f;
@@ -260,7 +274,10 @@ namespace Q3Movement
             m_UseSideStrafeSettings = true;
             m_UseAirControl = true;
             m_UseCrouch = true;
+            m_UseWalk = true;
             m_SkipFrictionWhenJumpQueued = true;
+
+            m_WalkSpeedScale = 64f / 127f;
 
             m_CrouchSpeedScale = 0.25f;
             m_CrouchHeightRatio = 40f / 56f;

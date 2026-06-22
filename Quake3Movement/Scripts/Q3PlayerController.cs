@@ -60,6 +60,7 @@ namespace Q3Movement
         }
 
         public bool IsCrouched => m_IsCrouched;
+        public bool IsWalking => Settings.UseWalk && m_WalkHeld;
 
         private CharacterController m_Character;
         private Vector3 m_MoveDirectionNorm = Vector3.zero;
@@ -72,6 +73,7 @@ namespace Q3Movement
 
         private bool m_JumpQueued = false;
         private bool m_CrouchHeld = false;
+        private bool m_WalkHeld = false;
         private bool m_IsCrouched = false;
         private bool m_WasGrounded = false;
         private float m_PlayerFriction = 0f;
@@ -378,6 +380,15 @@ namespace Q3Movement
                 0f,
                 GetAxisRaw(inputSettings.VerticalAxis)
             );
+
+            m_WalkHeld =
+                Settings.UseWalk &&
+                GetButton(inputSettings.WalkButton);
+
+            if (m_WalkHeld)
+            {
+                m_MoveInput *= Mathf.Clamp01(Settings.WalkSpeedScale);
+            }
 
             if (!Settings.UseCrouch)
             {
