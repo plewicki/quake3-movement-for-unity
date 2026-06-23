@@ -6,7 +6,9 @@ Most of the credit goes to them. My contributions were:
 + crouching
 + walking
 + landing bounce
++ smooth step
 + auto bunny hopping
++ launch function (f.ex. for jump pads)
 + a configurable controller, including features, variables, and bindings
 + preconfigured prefabs
 
