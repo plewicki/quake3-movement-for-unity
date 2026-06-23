@@ -81,6 +81,9 @@ namespace Q3Movement
         [Tooltip("Enables a visual camera bounce after landing. Does not affect movement velocity.")]
         [SerializeField] private bool m_UseLandingBounce = false;
 
+        [Tooltip("Smooths visual camera height changes caused by CharacterController stair stepping.")]
+        [SerializeField] private bool m_UseStepSmoothing = true;
+
         [Header("Base Movement")]
 
         [Tooltip("Ground friction multiplier. Vanilla Quake 3 uses pm_friction = 6.")]
@@ -160,7 +163,22 @@ namespace Q3Movement
         [Tooltip("Fall speed that produces the full landing dip.")]
         [SerializeField] private float m_LandingMaxFallSpeed = 12f;
 
+        [Header("Step Smoothing")]
+
+        [Tooltip("Duration of visual stair-step smoothing in seconds. Quake 3 uses STEP_TIME = 200 ms.")]
+        [SerializeField] private float m_StepSmoothingDuration = 0.2f;
+
+        [Tooltip("Minimum vertical displacement that is treated as a stair step.")]
+        [SerializeField] private float m_MinStepSmoothingHeight = 0.005f;
+
+        [Tooltip("Maximum accumulated camera offset used for stair smoothing. Quake 3 clamps MAX_STEP_CHANGE to 32 units.")]
+        [SerializeField] private float m_MaxStepSmoothingOffset = 32f * 7f / 320f;
+
+        [Tooltip("Also smooth downward stair drops. Vanilla Quake 3 only emits explicit step events for upward steps.")]
+        [SerializeField] private bool m_SmoothStepDown = true;
+
         public bool UseLandingBounce => m_UseLandingBounce;
+        public bool UseStepSmoothing => m_UseStepSmoothing;
         public bool UseQ3CommandScale => m_UseQ3CommandScale;
         public bool UseAirDeceleration => m_UseAirDeceleration;
         public bool UseSideStrafeSettings => m_UseSideStrafeSettings;
@@ -193,6 +211,10 @@ namespace Q3Movement
         public float LandingDip => m_LandingDip;
         public float LandingMinFallSpeed => m_LandingMinFallSpeed;
         public float LandingMaxFallSpeed => m_LandingMaxFallSpeed;
+        public float StepSmoothingDuration => m_StepSmoothingDuration;
+        public float MinStepSmoothingHeight => m_MinStepSmoothingHeight;
+        public float MaxStepSmoothingOffset => m_MaxStepSmoothingOffset;
+        public bool SmoothStepDown => m_SmoothStepDown;
 
         /// <summary>
         /// Applies a Vanilla Quake 3-like movement preset.
@@ -208,6 +230,7 @@ namespace Q3Movement
         public void ApplyVanillaQuakePreset()
         {
             m_UseLandingBounce = false;
+            m_UseStepSmoothing = true;
             m_UseQ3CommandScale = true;
             m_UseAirDeceleration = false;
             m_UseSideStrafeSettings = false;
@@ -253,6 +276,11 @@ namespace Q3Movement
             // Not used by this preset, but kept neutral for clarity.
             m_StrafeSettings = new MovementSettings(7f, 1f, 1f);
 
+            m_StepSmoothingDuration = 0.2f;
+            m_MinStepSmoothingHeight = 0.005f;
+            m_MaxStepSmoothingOffset = 32f * 7f / 320f;
+            m_SmoothStepDown = true;
+
             MarkDirtyInEditor();
         }
 
@@ -269,6 +297,7 @@ namespace Q3Movement
         public void ApplyCpmPreset()
         {
             m_UseLandingBounce = false;
+            m_UseStepSmoothing = true;
             m_UseQ3CommandScale = true;
             m_UseAirDeceleration = true;
             m_UseSideStrafeSettings = true;
@@ -298,6 +327,11 @@ namespace Q3Movement
             m_GroundSettings = new MovementSettings(7f, 14f, 10f);
             m_AirSettings = new MovementSettings(7f, 2f, 2f);
             m_StrafeSettings = new MovementSettings(1f, 50f, 50f);
+
+            m_StepSmoothingDuration = 0.2f;
+            m_MinStepSmoothingHeight = 0.005f;
+            m_MaxStepSmoothingOffset = 32f * 7f / 320f;
+            m_SmoothStepDown = true;
 
             MarkDirtyInEditor();
         }

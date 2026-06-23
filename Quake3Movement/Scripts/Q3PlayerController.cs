@@ -87,6 +87,9 @@ namespace Q3Movement
         private float m_LandingBounceStrength = 0f;
         private float m_CurrentLandingBounceOffset = 0f;
         private float m_CurrentCrouchViewOffset = 0f;
+        private float m_StepViewElapsed = float.PositiveInfinity;
+        private float m_StepViewChange = 0f;
+        private float m_CurrentStepViewOffset = 0f;
         private float m_DefaultCharacterHeight = 0f;
         private float m_DefaultCharacterRadius = 0f;
         private float m_DefaultStepOffset = 0f;
@@ -193,7 +196,9 @@ namespace Q3Movement
             // CharacterController.isGrounded is used as the main ground check.
             // For a closer idTech-style implementation, this would eventually be
             // replaced or supported by custom collision / ground-plane handling.
-            if (m_Character.isGrounded)
+            bool groundedBeforeMove = m_Character.isGrounded;
+
+            if (groundedBeforeMove)
             {
                 GroundMove();
             }
@@ -210,6 +215,7 @@ namespace Q3Movement
             }
 
             float fallSpeedBeforeMove = Mathf.Max(0f, -m_PlayerVelocity.y);
+            Vector3 positionBeforeMove = m_Tran.position;
 
             // CharacterController.Move expects displacement, not velocity.
             // Therefore the internally accumulated velocity is multiplied by deltaTime.
@@ -219,6 +225,13 @@ namespace Q3Movement
             bool groundedAfterMove =
                 (collisionFlags & CollisionFlags.Below) != 0 ||
                 m_Character.isGrounded;
+
+            float verticalMoveDelta = m_Tran.position.y - positionBeforeMove.y;
+
+            TryStartStepSmoothing(
+                groundedAfterMove,
+                verticalMoveDelta
+            );
 
             TryStartLandingBounce(groundedAfterMove, fallSpeedBeforeMove);
             UpdateLandingBounce();
@@ -244,6 +257,61 @@ namespace Q3Movement
             m_PlayerVelocity = m_PendingLaunchVelocity;
             m_PendingLaunchVelocity = Vector3.zero;
             m_HasPendingLaunch = false;
+        }
+
+        private void TryStartStepSmoothing(
+            bool groundedAfterMove,
+            float verticalMoveDelta
+        )
+        {
+            if (
+                !Settings.UseStepSmoothing ||
+                !m_CamTran ||
+                !groundedAfterMove ||
+                Settings.StepSmoothingDuration <= 0f
+            )
+            {
+                return;
+            }
+
+            if (verticalMoveDelta < 0f && !Settings.SmoothStepDown)
+            {
+                return;
+            }
+
+            float absStepDelta = Mathf.Abs(verticalMoveDelta);
+            float minStepHeight = Mathf.Max(0f, Settings.MinStepSmoothingHeight);
+
+            if (absStepDelta < minStepHeight)
+            {
+                return;
+            }
+
+            float maxSingleStepHeight = Mathf.Max(
+                minStepHeight,
+                m_Character.stepOffset + m_Character.skinWidth
+            );
+
+            if (absStepDelta > maxSingleStepHeight)
+            {
+                return;
+            }
+
+            float maxStepOffset = Mathf.Max(0f, Settings.MaxStepSmoothingOffset);
+
+            if (maxStepOffset <= 0f)
+            {
+                return;
+            }
+
+            m_StepViewChange = Mathf.Clamp(
+                m_CurrentStepViewOffset + verticalMoveDelta,
+                -maxStepOffset,
+                maxStepOffset
+            );
+
+            m_CurrentStepViewOffset = m_StepViewChange;
+            m_StepViewElapsed = 0f;
         }
 
         private void TryStartLandingBounce(bool groundedAfterMove, float fallSpeed)
@@ -315,16 +383,49 @@ namespace Q3Movement
             }
         }
 
+        private void UpdateStepViewOffset()
+        {
+            if (
+                !Settings.UseStepSmoothing ||
+                Settings.StepSmoothingDuration <= 0f ||
+                m_StepViewElapsed >= Settings.StepSmoothingDuration
+            )
+            {
+                m_StepViewElapsed = float.PositiveInfinity;
+                m_StepViewChange = 0f;
+                m_CurrentStepViewOffset = 0f;
+                return;
+            }
+
+            m_StepViewElapsed += Time.deltaTime;
+
+            float t = Mathf.Clamp01(
+                m_StepViewElapsed / Settings.StepSmoothingDuration
+            );
+
+            m_CurrentStepViewOffset = m_StepViewChange * (1f - t);
+
+            if (t >= 1f)
+            {
+                m_StepViewElapsed = float.PositiveInfinity;
+                m_StepViewChange = 0f;
+            }
+        }
+
         private void ResetCameraOffsets()
         {
             m_CurrentLandingBounceOffset = 0f;
             m_CurrentCrouchViewOffset = 0f;
+            m_CurrentStepViewOffset = 0f;
+            m_StepViewChange = 0f;
+            m_StepViewElapsed = float.PositiveInfinity;
             ApplyCameraPositionOffsets();
         }
 
         private void UpdateCameraOffsets()
         {
             UpdateCrouchViewOffset();
+            UpdateStepViewOffset();
             ApplyCameraPositionOffsets();
         }
 
@@ -368,7 +469,8 @@ namespace Q3Movement
 
             float totalOffset =
                 m_CurrentCrouchViewOffset +
-                m_CurrentLandingBounceOffset;
+                m_CurrentLandingBounceOffset +
+                m_CurrentStepViewOffset;
 
             m_CamTran.localPosition =
                 m_DefaultCameraLocalPosition + Vector3.down * totalOffset;

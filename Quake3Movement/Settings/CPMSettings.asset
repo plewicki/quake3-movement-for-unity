@@ -19,6 +19,7 @@ MonoBehaviour:
   m_UseCrouch: 1
   m_SkipFrictionWhenJumpQueued: 1
   m_UseLandingBounce: 0
+  m_UseStepSmoothing: 1
   m_Friction: 6
   m_Gravity: 20
   m_JumpForce: 8
@@ -48,3 +49,7 @@ MonoBehaviour:
   m_LandingDip: 0.08
   m_LandingMinFallSpeed: 2
   m_LandingMaxFallSpeed: 12
+  m_StepSmoothingDuration: 0.2
+  m_MinStepSmoothingHeight: 0.005
+  m_MaxStepSmoothingOffset: 0.7
+  m_SmoothStepDown: 1
