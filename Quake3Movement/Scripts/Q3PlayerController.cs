@@ -61,10 +61,14 @@ namespace Q3Movement
 
         public bool IsCrouched => m_IsCrouched;
         public bool IsWalking => Settings.UseWalk && m_WalkHeld;
+        public Vector3 Velocity => m_PlayerVelocity;
+        public float Gravity => Settings.Gravity;
 
         private CharacterController m_Character;
         private Vector3 m_MoveDirectionNorm = Vector3.zero;
         private Vector3 m_PlayerVelocity = Vector3.zero;
+        private Vector3 m_PendingLaunchVelocity = Vector3.zero;
+        private bool m_HasPendingLaunch = false;
 
         // Raw movement input from Unity's input axes.
         // x = right/left
@@ -198,6 +202,8 @@ namespace Q3Movement
                 AirMove();
             }
 
+            ApplyPendingLaunch();
+
             if (m_CamTran)
             {
                 m_MouseLook.LookRotation(m_Tran, m_CamTran);
@@ -219,6 +225,25 @@ namespace Q3Movement
             UpdateCameraOffsets();
 
             m_WasGrounded = groundedAfterMove;
+        }
+
+        public void QueueLaunch(Vector3 velocity)
+        {
+            m_PendingLaunchVelocity = velocity;
+            m_HasPendingLaunch = true;
+            m_JumpQueued = false;
+        }
+
+        private void ApplyPendingLaunch()
+        {
+            if (!m_HasPendingLaunch)
+            {
+                return;
+            }
+
+            m_PlayerVelocity = m_PendingLaunchVelocity;
+            m_PendingLaunchVelocity = Vector3.zero;
+            m_HasPendingLaunch = false;
         }
 
         private void TryStartLandingBounce(bool groundedAfterMove, float fallSpeed)
