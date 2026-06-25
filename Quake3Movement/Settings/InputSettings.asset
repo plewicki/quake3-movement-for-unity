@@ -15,6 +15,6 @@ MonoBehaviour:
   m_HorizontalAxis: Horizontal
   m_VerticalAxis: Vertical
   m_JumpButton: Jump
-  m_AutoBunnyHop: 1
+  m_AutoBunnyHop: 0
   m_CrouchButton: Fire1
   m_WalkButton: Fire3

@@ -11,6 +11,8 @@ Most of the credit goes to them. My contributions were:
 + launch function (f.ex. for jump pads)
 + a configurable controller, including features, variables, and bindings
 + preconfigured prefabs
++ moving commands API
++ reading inputs in external provider
 
 Personally, I don’t think the movement is 100% accurate yet, but the current settings are a good starting point.
 
