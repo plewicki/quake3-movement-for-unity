@@ -23,7 +23,6 @@ MonoBehaviour:
   m_Friction: 6
   m_Gravity: 20
   m_JumpForce: 8
-  m_AutoBunnyHop: 0
   m_AirControl: 0.3
   m_CrouchSpeedScale: 0.25
   m_CrouchHeightRatio: 0.71428573

@@ -299,6 +299,7 @@ GameObject:
   - component: {fileID: 7878422064974307918}
   - component: {fileID: 7740434394367304167}
   - component: {fileID: 8130418375464302313}
+  - component: {fileID: 2387140137709146221}
   - component: {fileID: 4568814947025574766}
   m_Layer: 0
   m_Name: Q3VanillaPlayer
@@ -362,6 +363,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Q3Movement.Q3PlayerController
   m_Settings: {fileID: 11400000, guid: 26cecda24ec10f94881d529ef48a0c99, type: 2}
+  m_Camera: {fileID: 8703333725332878455}
+--- !u!114 &2387140137709146221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7015196913846907233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd7d0197aa754dd0a9a40bde2b4d83c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Q3Movement.Q3LegacyInputCommandProvider
   m_InputSettings: {fileID: 11400000, guid: 366ea500ca47fcd44a55b5103b0b473f, type: 2}
   m_Camera: {fileID: 8703333725332878455}
   m_MouseLook:

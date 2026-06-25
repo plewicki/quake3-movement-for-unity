@@ -32,13 +32,9 @@ namespace Q3Movement
         [Tooltip("Movement profile used by this controller.")]
         [SerializeField] private Q3PlayerControllerSettings m_Settings;
 
-        [Tooltip("Legacy Input Manager bindings used by this controller.")]
-        [SerializeField] private Q3PlayerInputSettings m_InputSettings;
-
-        [Header("Aiming")]
+        [Header("View")]
 
         [SerializeField] private Camera m_Camera;
-        [SerializeField] private MouseLook m_MouseLook = new MouseLook();
 
         /// <summary>
         /// Returns the current CharacterController velocity magnitude.
@@ -63,6 +59,7 @@ namespace Q3Movement
         public bool IsWalking => Settings.UseWalk && m_WalkHeld;
         public Vector3 Velocity => m_PlayerVelocity;
         public float Gravity => Settings.Gravity;
+        public Camera ViewCamera => m_Camera;
 
         private CharacterController m_Character;
         private Vector3 m_MoveDirectionNorm = Vector3.zero;
@@ -70,7 +67,7 @@ namespace Q3Movement
         private Vector3 m_PendingLaunchVelocity = Vector3.zero;
         private bool m_HasPendingLaunch = false;
 
-        // Raw movement input from Unity's input axes.
+        // Raw movement command supplied by an external provider.
         // x = right/left
         // z = forward/backward
         private Vector3 m_MoveInput = Vector3.zero;
@@ -100,7 +97,6 @@ namespace Q3Movement
 
         // Runtime fallback used only when no settings asset is assigned.
         private Q3PlayerControllerSettings m_RuntimeFallbackSettings;
-        private Q3PlayerInputSettings m_RuntimeFallbackInputSettings;
 
         private Q3PlayerControllerSettings Settings
         {
@@ -129,25 +125,6 @@ namespace Q3Movement
             }
         }
 
-        private Q3PlayerInputSettings InputSettings
-        {
-            get
-            {
-                if (m_InputSettings != null)
-                {
-                    return m_InputSettings;
-                }
-
-                if (m_RuntimeFallbackInputSettings == null)
-                {
-                    m_RuntimeFallbackInputSettings =
-                        ScriptableObject.CreateInstance<Q3PlayerInputSettings>();
-                }
-
-                return m_RuntimeFallbackInputSettings;
-            }
-        }
-
         private void Start()
         {
             m_Tran = transform;
@@ -157,24 +134,11 @@ namespace Q3Movement
             m_DefaultCharacterCenter = m_Character.center;
             m_DefaultStepOffset = m_Character.stepOffset;
 
-            if (!m_Camera)
-            {
-                m_Camera = Camera.main;
-            }
-
             if (m_Camera)
             {
                 m_CamTran = m_Camera.transform;
                 m_DefaultCameraLocalPosition = m_CamTran.localPosition;
                 m_HasDefaultCameraLocalPosition = true;
-                m_MouseLook.Init(m_Tran, m_CamTran);
-            }
-            else
-            {
-                Debug.LogWarning(
-                    $"{nameof(Q3PlayerController)} on {name} has no camera assigned.",
-                    this
-                );
             }
 
             m_WasGrounded = m_Character.isGrounded;
@@ -182,15 +146,12 @@ namespace Q3Movement
 
         private void OnDisable()
         {
+            ResetMovementCommands();
             ResetCameraOffsets();
         }
 
         private void Update()
         {
-            ReadInput();
-
-            m_MouseLook.UpdateCursorLock();
-            QueueJump();
             UpdateCrouchState();
 
             // CharacterController.isGrounded is used as the main ground check.
@@ -208,11 +169,6 @@ namespace Q3Movement
             }
 
             ApplyPendingLaunch();
-
-            if (m_CamTran)
-            {
-                m_MouseLook.LookRotation(m_Tran, m_CamTran);
-            }
 
             float fallSpeedBeforeMove = Mathf.Max(0f, -m_PlayerVelocity.y);
             Vector3 positionBeforeMove = m_Tran.position;
@@ -245,6 +201,36 @@ namespace Q3Movement
             m_PendingLaunchVelocity = velocity;
             m_HasPendingLaunch = true;
             m_JumpQueued = false;
+        }
+
+        public void ExecuteMovementCommand(MovementCommand command)
+        {
+            switch (command.Type)
+            {
+                case MovementCommandType.Move:
+                    SetMoveInput(command.GetData<Vector3>());
+                    break;
+
+                case MovementCommandType.Jump:
+                    SetJumpQueued(command.Data == null || command.GetData<bool>());
+                    break;
+
+                case MovementCommandType.Crouch:
+                    SetCrouchHeld(command.GetData<bool>());
+                    break;
+
+                case MovementCommandType.Walk:
+                    SetWalkHeld(command.GetData<bool>());
+                    break;
+            }
+        }
+
+        public void ResetMovementCommands()
+        {
+            m_MoveInput = Vector3.zero;
+            m_JumpQueued = false;
+            m_CrouchHeld = false;
+            m_WalkHeld = false;
         }
 
         private void ApplyPendingLaunch()
@@ -492,38 +478,33 @@ namespace Q3Movement
             return dip * recover;
         }
 
-        /// <summary>
-        /// Reads raw movement input.
-        ///
-        /// Input.GetAxisRaw is used to avoid Unity's built-in smoothing.
-        /// Quake-style movement expects raw command values.
-        /// </summary>
-        private void ReadInput()
+        private void SetMoveInput(Vector3 move)
         {
-            Q3PlayerInputSettings inputSettings = InputSettings;
+            m_MoveInput = new Vector3(move.x, 0f, move.z);
+        }
 
-            m_MoveInput = new Vector3(
-                GetAxisRaw(inputSettings.HorizontalAxis),
-                0f,
-                GetAxisRaw(inputSettings.VerticalAxis)
-            );
+        private void SetCrouchHeld(bool crouchHeld)
+        {
+            m_CrouchHeld =
+                Settings.UseCrouch &&
+                crouchHeld;
+        }
 
+        private void SetWalkHeld(bool walkHeld)
+        {
             m_WalkHeld =
                 Settings.UseWalk &&
-                GetButton(inputSettings.WalkButton);
+                walkHeld;
+        }
 
-            if (m_WalkHeld)
+        private Vector3 GetMoveInput()
+        {
+            if (!m_WalkHeld)
             {
-                m_MoveInput *= Mathf.Clamp01(Settings.WalkSpeedScale);
+                return m_MoveInput;
             }
 
-            if (!Settings.UseCrouch)
-            {
-                m_CrouchHeld = false;
-                return;
-            }
-
-            m_CrouchHeld = GetButton(inputSettings.CrouchButton);
+            return m_MoveInput * Mathf.Clamp01(Settings.WalkSpeedScale);
         }
 
         private void UpdateCrouchState()
@@ -684,53 +665,9 @@ namespace Q3Movement
         /// This makes bunny hopping possible without requiring the jump input
         /// to happen on the exact landing frame.
         /// </summary>
-        private void QueueJump()
+        private void SetJumpQueued(bool jumpQueued)
         {
-            string jumpButton = InputSettings.JumpButton;
-
-            if (Settings.AutoBunnyHop)
-            {
-                m_JumpQueued = GetButton(jumpButton);
-                return;
-            }
-
-            if (GetButtonDown(jumpButton) && !m_JumpQueued)
-            {
-                m_JumpQueued = true;
-            }
-
-            if (GetButtonUp(jumpButton))
-            {
-                m_JumpQueued = false;
-            }
-        }
-
-        private float GetAxisRaw(string axisName)
-        {
-            return string.IsNullOrEmpty(axisName)
-                ? 0f
-                : Input.GetAxisRaw(axisName);
-        }
-
-        private bool GetButton(string buttonName)
-        {
-            return
-                !string.IsNullOrEmpty(buttonName) &&
-                Input.GetButton(buttonName);
-        }
-
-        private bool GetButtonDown(string buttonName)
-        {
-            return
-                !string.IsNullOrEmpty(buttonName) &&
-                Input.GetButtonDown(buttonName);
-        }
-
-        private bool GetButtonUp(string buttonName)
-        {
-            return
-                !string.IsNullOrEmpty(buttonName) &&
-                Input.GetButtonUp(buttonName);
+            m_JumpQueued = jumpQueued;
         }
 
         /// <summary>
@@ -860,9 +797,11 @@ namespace Q3Movement
 
         private bool IsOnlySideStrafing()
         {
+            Vector3 input = GetMoveInput();
+
             return
-                Mathf.Abs(m_MoveInput.z) < 0.001f &&
-                Mathf.Abs(m_MoveInput.x) > 0.001f;
+                Mathf.Abs(input.z) < 0.001f &&
+                Mathf.Abs(input.x) > 0.001f;
         }
 
         /// <summary>
@@ -958,10 +897,12 @@ namespace Q3Movement
         /// </summary>
         private void AirControl(Vector3 targetDir, float targetSpeed)
         {
+            Vector3 input = GetMoveInput();
+
             // Air control only applies when moving forward or backward.
             // Pure side-strafe movement should not trigger this function.
             if (
-                Mathf.Abs(m_MoveInput.z) < 0.001f ||
+                Mathf.Abs(input.z) < 0.001f ||
                 Mathf.Abs(targetSpeed) < 0.001f
             )
             {
@@ -1026,7 +967,7 @@ namespace Q3Movement
             out float wishspeed
         )
         {
-            Vector3 input = new Vector3(m_MoveInput.x, 0f, m_MoveInput.z);
+            Vector3 input = GetMoveInput();
 
             // Convert local input direction into world space.
             wishdir = m_Tran.TransformDirection(input);

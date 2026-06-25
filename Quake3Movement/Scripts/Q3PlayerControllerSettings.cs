@@ -95,9 +95,6 @@ namespace Q3Movement
         [Tooltip("Vertical jump velocity. Scaled from Quake 3 JUMP_VELOCITY = 270.")]
         [SerializeField] private float m_JumpForce = 5.90625f;
 
-        [Tooltip("Automatically jump when holding the jump button.")]
-        [SerializeField] private bool m_AutoBunnyHop = false;
-
         [Header("Air Control")]
 
         [Tooltip("CPM-style air control strength. Used only when Use Air Control is enabled.")]
@@ -199,7 +196,6 @@ namespace Q3Movement
         public float Friction => m_Friction;
         public float Gravity => m_Gravity;
         public float JumpForce => m_JumpForce;
-        public bool AutoBunnyHop => m_AutoBunnyHop;
 
         public float AirControl => m_AirControl;
 
@@ -260,7 +256,6 @@ namespace Q3Movement
             m_Gravity = 17.5f;      // 800 * 7 / 320
             m_JumpForce = 5.90625f; // 270 * 7 / 320
 
-            m_AutoBunnyHop = false;
             m_AirControl = 0f;
 
             // Vanilla Quake 3 movement constants:
@@ -320,8 +315,6 @@ namespace Q3Movement
             m_Gravity = 20f;
             m_JumpForce = 8f;
 
-            m_AutoBunnyHop = false;
-
             m_AirControl = 0.3f;
 
             m_GroundSettings = new MovementSettings(7f, 14f, 10f);
@@ -332,24 +325,6 @@ namespace Q3Movement
             m_MinStepSmoothingHeight = 0.005f;
             m_MaxStepSmoothingOffset = 32f * 7f / 320f;
             m_SmoothStepDown = true;
-
-            MarkDirtyInEditor();
-        }
-
-        [ContextMenu("Apply CPM Preset With Auto Bunny Hop")]
-        public void ApplyCpmAutoBunnyHopPreset()
-        {
-            ApplyCpmPreset();
-            m_AutoBunnyHop = true;
-
-            MarkDirtyInEditor();
-        }
-
-        [ContextMenu("Apply Vanilla Quake 3 With Auto Bunny Hop Preset")]
-        public void ApplyVanillaQuakeAutoBunnyHopPreset()
-        {
-            ApplyVanillaQuakePreset();
-            m_AutoBunnyHop = true;
 
             MarkDirtyInEditor();
         }

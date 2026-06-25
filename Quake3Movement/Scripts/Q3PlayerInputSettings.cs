@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Q3Movement
 {
     /// <summary>
-    /// Stores legacy Input Manager binding names used by Q3PlayerController.
+    /// Stores legacy Input Manager binding names used by Q3LegacyInputCommandProvider.
     /// </summary>
     [CreateAssetMenu(
         fileName = "Q3 Player Input Settings",
@@ -22,6 +22,9 @@ namespace Q3Movement
         [Tooltip("Input Manager button used for jumping.")]
         [SerializeField] private string m_JumpButton = "Jump";
 
+        [Tooltip("Sends jump requests every frame while the jump button is held.")]
+        [SerializeField] private bool m_AutoBunnyHop = false;
+
         [Tooltip("Input Manager button used for crouching.")]
         [SerializeField] private string m_CrouchButton = "Fire1";
 
@@ -31,6 +34,7 @@ namespace Q3Movement
         public string HorizontalAxis => m_HorizontalAxis;
         public string VerticalAxis => m_VerticalAxis;
         public string JumpButton => m_JumpButton;
+        public bool AutoBunnyHop => m_AutoBunnyHop;
         public string CrouchButton => m_CrouchButton;
         public string WalkButton => m_WalkButton;
 
@@ -40,6 +44,7 @@ namespace Q3Movement
             m_HorizontalAxis = "Horizontal";
             m_VerticalAxis = "Vertical";
             m_JumpButton = "Jump";
+            m_AutoBunnyHop = false;
             m_CrouchButton = "Fire1";
             m_WalkButton = "Fire3";
 
