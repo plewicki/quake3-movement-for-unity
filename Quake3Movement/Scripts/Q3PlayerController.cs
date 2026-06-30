@@ -130,7 +130,7 @@ namespace Q3Movement
             // replaced or supported by custom collision / ground-plane handling.
             bool groundedBeforeMove = m_Character.isGrounded;
 
-            if (groundedBeforeMove)
+            if (groundedBeforeMove && !HasKnockbackMovement)
             {
                 GroundMove();
             }
@@ -139,7 +139,7 @@ namespace Q3Movement
                 AirMove();
             }
 
-            ApplyPendingLaunch();
+            ApplyPendingExternalVelocity();
 
             float fallSpeedBeforeMove = Mathf.Max(0f, -m_PlayerVelocity.y);
             Vector3 positionBeforeMove = m_Tran.position;
@@ -163,6 +163,7 @@ namespace Q3Movement
             TryStartLandingBounce(groundedAfterMove, fallSpeedBeforeMove);
             UpdateLandingBounce();
             UpdateCameraOffsets();
+            AdvanceKnockbackTimer();
 
             m_WasGrounded = groundedAfterMove;
         }
