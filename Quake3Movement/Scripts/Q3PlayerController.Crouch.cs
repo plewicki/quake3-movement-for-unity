@@ -23,7 +23,7 @@ namespace Q3Movement
                 return;
             }
 
-            if (m_CrouchHeld)
+            if (m_CurrentCommands.Crouch)
             {
                 SetCrouched(true);
                 return;

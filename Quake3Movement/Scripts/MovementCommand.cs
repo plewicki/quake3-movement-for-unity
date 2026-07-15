@@ -2,53 +2,39 @@ using UnityEngine;
 
 namespace Q3Movement
 {
-    public enum MovementCommandType
+    public readonly struct JumpCommand
     {
-        Move,
-        Jump,
-        Crouch,
-        Walk
+        public bool Requested { get; }
+        public bool RepeatWhileHeld { get; }
+
+        public JumpCommand(bool requested, bool repeatWhileHeld)
+        {
+            Requested = requested;
+            RepeatWhileHeld = repeatWhileHeld;
+        }
     }
 
     /// <summary>
-    /// Single movement action requested by an external command provider.
-    /// Data is interpreted by Q3PlayerController based on Type.
+    /// Complete movement request submitted for one controller update.
     /// </summary>
-    public struct MovementCommand
+    public readonly struct MovementCommandSet
     {
-        public MovementCommandType Type;
-        public object Data;
+        public Vector2 Move { get; }
+        public JumpCommand Jump { get; }
+        public bool Crouch { get; }
+        public bool Walk { get; }
 
-        public MovementCommand(MovementCommandType type, object data)
+        public MovementCommandSet(
+            Vector2 move,
+            JumpCommand jump,
+            bool crouch,
+            bool walk
+        )
         {
-            Type = type;
-            Data = data;
-        }
-
-        public T GetData<T>()
-        {
-            return (T)Data;
-        }
-
-        public static MovementCommand Move(Vector3 localMove)
-        {
-            localMove.y = 0f;
-            return new MovementCommand(MovementCommandType.Move, localMove);
-        }
-
-        public static MovementCommand Jump(bool requested = true)
-        {
-            return new MovementCommand(MovementCommandType.Jump, requested);
-        }
-
-        public static MovementCommand Crouch(bool held)
-        {
-            return new MovementCommand(MovementCommandType.Crouch, held);
-        }
-
-        public static MovementCommand Walk(bool held)
-        {
-            return new MovementCommand(MovementCommandType.Walk, held);
+            Move = move;
+            Jump = jump;
+            Crouch = crouch;
+            Walk = walk;
         }
     }
 }

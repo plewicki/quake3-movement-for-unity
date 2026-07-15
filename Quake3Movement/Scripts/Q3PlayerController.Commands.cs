@@ -4,84 +4,80 @@ namespace Q3Movement
 {
     public partial class Q3PlayerController
     {
-        // Raw movement command supplied by an external provider.
-        // x = right/left
-        // z = forward/backward
-        private Vector3 m_MoveInput = Vector3.zero;
+        private MovementCommandSet m_PendingCommands;
+        private MovementCommandSet m_CurrentCommands;
+        private bool m_HasPendingCommands = false;
+        private bool m_JumpConsumedWhileHeld = false;
 
-        private bool m_JumpQueued = false;
-        private bool m_CrouchHeld = false;
-        private bool m_WalkHeld = false;
-
-        public void ExecuteMovementCommand(MovementCommand command)
+        public void SubmitMovementCommands(in MovementCommandSet commands)
         {
-            switch (command.Type)
-            {
-                case MovementCommandType.Move:
-                    SetMoveInput(command.GetData<Vector3>());
-                    break;
-
-                case MovementCommandType.Jump:
-                    SetJumpQueued(command.Data == null || command.GetData<bool>());
-                    break;
-
-                case MovementCommandType.Crouch:
-                    SetCrouchHeld(command.GetData<bool>());
-                    break;
-
-                case MovementCommandType.Walk:
-                    SetWalkHeld(command.GetData<bool>());
-                    break;
-            }
+            m_PendingCommands = commands;
+            m_HasPendingCommands = true;
         }
 
         public void ResetMovementCommands()
         {
-            m_MoveInput = Vector3.zero;
-            m_JumpQueued = false;
-            m_CrouchHeld = false;
-            m_WalkHeld = false;
+            m_PendingCommands = default;
+            m_CurrentCommands = default;
+            m_HasPendingCommands = false;
+            m_JumpConsumedWhileHeld = false;
         }
 
-        private void SetMoveInput(Vector3 move)
+        private void ConsumeMovementCommands()
         {
-            m_MoveInput = new Vector3(move.x, 0f, move.z);
-        }
+            m_CurrentCommands = m_HasPendingCommands
+                ? m_PendingCommands
+                : default;
 
-        private void SetCrouchHeld(bool crouchHeld)
-        {
-            m_CrouchHeld =
-                Settings.UseCrouch &&
-                crouchHeld;
-        }
+            m_PendingCommands = default;
+            m_HasPendingCommands = false;
 
-        private void SetWalkHeld(bool walkHeld)
-        {
-            m_WalkHeld =
-                Settings.UseWalk &&
-                walkHeld;
+            if (!m_CurrentCommands.Jump.Requested)
+            {
+                m_JumpConsumedWhileHeld = false;
+            }
         }
 
         private Vector3 GetMoveInput()
         {
-            if (!m_WalkHeld)
+            Vector2 move = m_CurrentCommands.Move;
+            Vector3 input = new Vector3(move.x, 0f, move.y);
+
+            if (!IsWalking)
             {
-                return m_MoveInput;
+                return input;
             }
 
-            return m_MoveInput * Mathf.Clamp01(Settings.WalkSpeedScale);
+            return input * Mathf.Clamp01(Settings.WalkSpeedScale);
         }
 
-        /// <summary>
-        /// Queues the next jump.
-        ///
-        /// In Quake-style movement, a jump can be queued shortly before landing.
-        /// This makes bunny hopping possible without requiring the jump input
-        /// to happen on the exact landing frame.
-        /// </summary>
-        private void SetJumpQueued(bool jumpQueued)
+        private bool ShouldJump()
         {
-            m_JumpQueued = jumpQueued;
+            return
+                m_CurrentCommands.Jump.Requested &&
+                (
+                    m_CurrentCommands.Jump.RepeatWhileHeld ||
+                    !m_JumpConsumedWhileHeld
+                );
+        }
+
+        private void ConsumeJumpRequest()
+        {
+            m_JumpConsumedWhileHeld = true;
+        }
+
+        private void ConsumeActiveJumpRequest()
+        {
+            if (
+                m_CurrentCommands.Jump.Requested ||
+                (
+                    m_HasPendingCommands &&
+                    m_PendingCommands.Jump.Requested
+                )
+            )
+            {
+                m_JumpConsumedWhileHeld = true;
+            }
         }
     }
 }

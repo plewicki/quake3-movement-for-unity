@@ -56,7 +56,7 @@ namespace Q3Movement
         }
 
         public bool IsCrouched => m_IsCrouched;
-        public bool IsWalking => Settings.UseWalk && m_WalkHeld;
+        public bool IsWalking => Settings.UseWalk && m_CurrentCommands.Walk;
         public Vector3 Velocity => m_PlayerVelocity;
         public float Gravity => Settings.Gravity;
         public Camera ViewCamera => m_Camera;
@@ -123,6 +123,7 @@ namespace Q3Movement
 
         private void Update()
         {
+            ConsumeMovementCommands();
             UpdateCrouchState();
 
             // CharacterController.isGrounded is used as the main ground check.

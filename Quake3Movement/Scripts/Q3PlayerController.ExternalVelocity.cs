@@ -25,7 +25,7 @@ namespace Q3Movement
         {
             m_PendingLaunchVelocity = velocity;
             m_HasPendingLaunch = true;
-            m_JumpQueued = false;
+            ConsumeActiveJumpRequest();
         }
 
         /// <summary>

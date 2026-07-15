@@ -14,14 +14,15 @@ namespace Q3Movement
         /// Ground movement applies friction first, then accelerates the player
         /// toward the current wish direction.
         ///
-        /// When a jump is queued, friction can optionally be skipped for that frame.
+        /// When a jump is requested, friction can optionally be skipped for that frame.
         /// This is one of the details that makes Quake-style bunny hopping work.
         /// </summary>
         private void GroundMove()
         {
+            bool shouldJump = ShouldJump();
             bool skipFriction =
                 Settings.SkipFrictionWhenJumpQueued &&
-                m_JumpQueued;
+                shouldJump;
 
             ApplyFriction(skipFriction ? 0f : 1f);
 
@@ -58,10 +59,10 @@ namespace Q3Movement
             // This small downward velocity helps Unity keep reporting isGrounded.
             m_PlayerVelocity.y = -Settings.Gravity * Time.deltaTime;
 
-            if (m_JumpQueued)
+            if (shouldJump)
             {
                 m_PlayerVelocity.y = Settings.JumpForce;
-                m_JumpQueued = false;
+                ConsumeJumpRequest();
             }
         }
 
